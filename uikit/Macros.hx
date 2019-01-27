@@ -6,25 +6,40 @@ import uikit.Error;
 #end
 
 class Macros {
-
-	static macro function init() {
-		return macro null;
-	}
-
 	#if macro
 
 	@:persistent static var COMPONENTS = new Map<String, uikit.MetaComponent>();
 	@:persistent static var componentsType : ComplexType;
 	static var __ = addComponents(); // each compilation
 
+	public static function registerComponentClass( path : String ) {
+		var path = path.split(".");
+		var sub = path[path.length - 2];
+		registerComponent(TPath({
+			pack : path,
+			sub : sub != null && sub.charCodeAt(0) >= "A".code && sub.charCodeAt(0) <= "Z".code ? path.pop() : null,
+			name : path.pop()
+		}));
+	}
+
 	public static function registerComponent( type : ComplexType ) {
 		var pos = Context.currentPos();
-		if( componentsType == null ) componentsType = type;
 		var t = Context.resolveType(type, pos);
+		if( componentsType == null ) {
+			componentsType = type;
+			switch( t ) {
+			case TInst(c,_):
+				for( i in c.get().interfaces )
+					if( i.t.toString() == "uikit.ComponentDecl" )
+						componentsType = haxe.macro.Tools.TTypeTools.toComplexType(i.params[0]);
+			default:
+			}
+		}
 		try {
 			var mt = new uikit.MetaComponent(componentsType, t);
+			componentsType = mt.componentsType;
 			var td = mt.buildRuntimeComponent();
-			Context.defineType(td);
+			Context.defineType(td, mt.getModulePath());
 			COMPONENTS.set(mt.name, mt);
 		} catch( e : uikit.MetaComponent.MetaError ) {
 			Context.error(e.message, e.position);
@@ -33,8 +48,13 @@ class Macros {
 
 	static function addComponents() {
 		haxe.macro.Context.onAfterTyping(function(_) {
-			for( mt in COMPONENTS )
-				Context.resolveType(mt.getRuntimeComponentType(), Context.currentPos());
+			for( mt in COMPONENTS ) {
+				try {
+					Context.resolveType(mt.getRuntimeComponentType(), Context.currentPos());
+				} catch( e : Dynamic ) {
+					Context.error("Error "+e, @:privateAccess mt.classType.pos);
+				}
+			}
 		});
 	}
 

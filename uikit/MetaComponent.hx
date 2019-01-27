@@ -271,6 +271,10 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		haxe.macro.ExprTools.iter(e, function(e) setPosRec(e,p));
 	}
 
+	public function getModulePath() {
+		return classType.module;
+	}
+
 	public function buildRuntimeComponent() {
 		var cname = runtimeName(name);
 		var createMethod = null;
@@ -314,7 +318,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		}
 
 		var newExpr = haxe.macro.MacroStringTools.toFieldExpr(path, classType.pos);
-		switch( newType.follow() ) {
+/*		switch( newType.follow() ) {
 		case TFun(args,_):
 			args.pop(); // parent
 			if( args.length > 0 ) {
@@ -322,7 +326,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			}
 		default:
 		}
-
+*/
 		var handlers = [];
 		for( i in 0...propsHandler.length ) {
 			var h = propsHandler[i];
