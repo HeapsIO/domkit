@@ -1,0 +1,4 @@
+-cp ..
+-main Test
+-hl test.hl
+--macro InitComponents.init()

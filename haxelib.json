@@ -1,0 +1,10 @@
+{
+	"name" : "uikit",
+	"url" : "https://github.com/ncannasse/uikit",
+	"license" : "BSD",
+    "description" : "CSS Components UI framework",
+    "version" : "0.1.0",
+	"releasenote" : "",
+	"contributors" : ["ncannasse"],
+	"dependencies" : {}
+}
