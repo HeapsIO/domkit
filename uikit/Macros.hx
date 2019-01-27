@@ -105,7 +105,7 @@ class Macros {
 			var exprs : Array<Expr> = if( isRoot )
 				[
 					(macro document = new uikit.Document()),
-					(macro var tmp = uikit.Element.create($v{name},$attributes,null,(this : $ct))),
+					(macro var tmp : uikit.Element<$componentsType> = uikit.Element.create($v{name},$attributes,(null:uikit.Element<$componentsType>),(this : $ct))),
 					(macro document.elements.push(tmp)),
 				];
 			else
