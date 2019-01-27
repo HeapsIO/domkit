@@ -4,8 +4,13 @@ class Document<T> {
 
 	public var elements : Array<Element<T>> = [];
 	public var style(default,null) : CssStyle;
+	public var root(get,never) : Element<T>;
 
 	public function new() {
+	}
+
+	inline function get_root() {
+		return elements[0];
 	}
 
 	public function setStyle( s : CssStyle ) {
