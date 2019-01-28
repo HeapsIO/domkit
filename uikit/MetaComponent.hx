@@ -67,6 +67,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			if( i.t.toString() == "uikit.ComponentDecl" )
 				baseT = i.params[0];
 		baseClass = switch( baseT.follow() ) { case TInst(c,_): c.get(); default: throw "assert"; };
+		if( baseT != t )
+			baseClass.meta.add(":uiComp",[{ expr : EConst(CString(name)), pos : c.pos }], c.pos);
 		baseType = baseT.toComplexType();
 
 		for( f in fields ) {

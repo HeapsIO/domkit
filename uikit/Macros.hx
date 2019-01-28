@@ -141,7 +141,25 @@ class Macros {
 		}
 	}
 
+	static function lookupInterface( c : haxe.macro.Type.Ref<haxe.macro.Type.ClassType>, name : String ) {
+		while( true ) {
+			var cg = c.get();
+			for( i in cg.interfaces ) {
+				if( i.t.toString() == name )
+					return true;
+				if( lookupInterface(i.t, name) )
+					return true;
+			}
+			var sup = cg.superClass;
+			if( sup == null )
+				break;
+			c = sup.t;
+		}
+		return false;
+	}
+
 	public static function buildObject() {
+		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
 		for( f in fields )
 			if( f.name == "SRC" ) {
@@ -153,12 +171,14 @@ class Macros {
 						var root = p.parse(str,pinf.file,pinf.min).children[0];
 
 						var initExpr = buildComponentsInit(root, fields, pos, true);
-						fields = fields.concat((macro class {
-							public var document : uikit.Document<$componentsType>;
-							public function setStyle( style : uikit.CssStyle ) {
-								document.setStyle(style);
-							}
-						}).fields);
+
+						if( cl.superClass != null && !lookupInterface(cl.superClass.t,"h2d.uikit.Object") )
+							fields = fields.concat((macro class {
+								public var document : uikit.Document<$componentsType>;
+								public function setStyle( style : uikit.CssStyle ) {
+									document.setStyle(style);
+								}
+							}).fields);
 
 						var found = false;
 						for( f in fields )
