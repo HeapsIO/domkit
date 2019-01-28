@@ -138,6 +138,22 @@ class Macros {
 				var tmp = uikit.Element.create("text",null,tmp);
 				tmp.setAttribute("text",VString($v{text}));
 			};
+		case CodeBlock(expr):
+			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
+			replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
+			return expr;
+		}
+	}
+
+	static function replaceLoop( e : Expr, callb : MarkupParser.Markup -> Expr ) {
+		switch( e.expr ) {
+		case EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }):
+			var p = new MarkupParser();
+			var pinf = Context.getPosInfos(e.pos);
+			var root = p.parse(str,pinf.file,pinf.min).children[0];
+			e.expr = callb(root).expr;
+		default:
+			haxe.macro.ExprTools.iter(e,function(e) replaceLoop(e,callb));
 		}
 	}
 
@@ -164,7 +180,7 @@ class Macros {
 		for( f in fields )
 			if( f.name == "SRC" ) {
 				switch( f.kind ) {
-				case FVar(_,{ expr : EMeta(_,{ expr : EConst(CString(str)) }), pos : pos }):
+				case FVar(_,{ expr : EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }), pos : pos }):
 					try {
 						var p = new MarkupParser();
 						var pinf = Context.getPosInfos(pos);

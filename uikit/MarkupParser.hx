@@ -6,6 +6,9 @@ enum abstract MToken(Int) {
 	var IGNORE_SPACES;
 	var BEGIN;
 	var BEGIN_NODE;
+	var BEGIN_CODE;
+	var CODE_IDENT;
+	var CODE_BLOCK;
 	var TAG_NAME;
 	var BODY;
 	var ATTRIB_NAME;
@@ -28,6 +31,7 @@ enum abstract MToken(Int) {
 enum MarkupKind {
 	Node( name : String );
 	Text( text : String );
+	CodeBlock( v : String );
 }
 
 enum AttributeValue {
@@ -145,7 +149,7 @@ class MarkupParser {
 							continue;
 					}
 				case PCDATA:
-					if (c == '<'.code)
+					if (c == '<'.code || c == '$'.code )
 					{
 						buf.addSub(str, start, p - start);
 						var child : Markup = {
@@ -155,8 +159,13 @@ class MarkupParser {
 						};
 						buf = new StringBuf();
 						addChild(child);
-						state = IGNORE_SPACES;
-						next = BEGIN_NODE;
+						if( c == '$'.code ) {
+							start = p + 1;
+							state = BEGIN_CODE;
+						} else {
+							state = IGNORE_SPACES;
+							next = BEGIN_NODE;
+						}
 					} else if (c == '&'.code) {
 						buf.addSub(str, start, p - start);
 						state = ESCAPE;
@@ -217,6 +226,40 @@ class MarkupParser {
 							state = TAG_NAME;
 							start = p;
 							continue;
+					}
+				case BEGIN_CODE:
+					if( c == '{'.code ) {
+						state = CODE_BLOCK;
+						start = p + 1;
+						nbraces = 1;
+					} else if( !isValidChar(c) ) {
+						error("Expected code identifier or block",p);
+					} else {
+						state = CODE_IDENT;
+					}
+				case CODE_BLOCK:
+					if( c == '{'.code )
+						nbraces++;
+					else if( c == '}'.code ) {
+						nbraces--;
+						if( nbraces == 0 ) {
+							addChild({
+								kind : CodeBlock(str.substr(start,p - start)),
+								pmin : start,
+								pmax : p,
+							});
+							state = BEGIN;
+						}
+					}
+				case CODE_IDENT:
+					if (!isValidChar(c)) {
+						addChild({
+							kind : CodeBlock(str.substr(start,p - start)),
+							pmin : start,
+							pmax : p,
+						});
+						state = BEGIN;
+						continue;
 					}
 				case TAG_NAME:
 					if (!isValidChar(c))
