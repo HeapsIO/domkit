@@ -140,7 +140,12 @@ class Macros {
 			};
 		case CodeBlock(expr):
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
-			replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
+			switch( expr.expr ) {
+			case EConst(CIdent(v)):
+				return macro uikit.Element.create("object",null,tmp,$i{v});
+			default:
+				replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
+			}
 			return expr;
 		}
 	}

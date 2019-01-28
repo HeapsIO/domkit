@@ -31,6 +31,7 @@ class Element<T> {
 			parent.children.remove(this);
 			parent = null;
 		}
+		removeElement(this);
 	}
 
 	function initStyle( p : String, value : Dynamic ) {
@@ -113,6 +114,14 @@ class Element<T> {
 		return Ok;
 	}
 
+	public static dynamic function addElement( e : Element<Dynamic>, to : Element<Dynamic> ) {
+		throw "Custom Element.addElement not implemented";
+	}
+
+	public static dynamic function removeElement( e : Element<Dynamic> ) {
+		throw "Custom Element.removeElement not implemented";
+	}
+
 	static var pclass = Property.get("class");
 	static var pid = Property.get("id");
 	public static function create<BaseT,T:BaseT>( comp : String, attributes : haxe.DynamicAccess<String>, ?parent : Element<BaseT>, ?value : T ) {
@@ -120,6 +129,7 @@ class Element<T> {
 		if( c == null ) throw "Unknown component "+comp;
 		var e = new Element<BaseT>(value == null ? c.make(parent == null ? null : parent.obj) : value, cast c, parent);
 		if( attributes != null ) e.initAttributes(attributes);
+		if( parent != null && value != null ) addElement(e, parent);
 		return e;
 	}
 
