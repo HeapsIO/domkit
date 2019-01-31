@@ -36,7 +36,7 @@ enum MarkupKind {
 
 enum AttributeValue {
 	RawValue( v : String );
-	Code( v : haxe.macro.Expr );
+	Code( v : #if macro haxe.macro.Expr #else String #end );
 }
 
 typedef Markup = {
@@ -100,7 +100,7 @@ class MarkupParser {
 		var e = try haxe.macro.Context.parseInlineString(v,haxe.macro.Context.makePosition({ min : filePos + start, max : filePos + start + v.length, file : fileName })) catch( e : Dynamic ) error(""+e, start, start + v.length);
 		return Code(e);
 		#else
-		return error("Unsupported runtime code attribute", start, start + v.length);
+		return Code(v);
 		#end
 	}
 
@@ -122,6 +122,19 @@ class MarkupParser {
 		inline function addChild(m:Markup) {
 			parent.children.push(m);
 			nsubs++;
+		}
+		inline function addText() {
+			var fullText = buf.toString();
+			var text = StringTools.trim(fullText);
+			if( text.length > 0 ) {
+				start += fullText.indexOf(text);
+				var child : Markup = {
+					kind : Text(text),
+					pmin : start,
+					pmax : start + text.length,
+				};
+				addChild(child);
+			}
 		}
 		while (!StringTools.isEof(c)) {
 			switch(state) {
@@ -152,13 +165,8 @@ class MarkupParser {
 					if (c == '<'.code || c == '$'.code )
 					{
 						buf.addSub(str, start, p - start);
-						var child : Markup = {
-							kind : Text(buf.toString()),
-							pmin : start,
-							pmax : p,
-						};
+						addText();
 						buf = new StringBuf();
-						addChild(child);
 						if( c == '$'.code ) {
 							start = p + 1;
 							state = BEGIN_CODE;
@@ -376,8 +384,8 @@ class MarkupParser {
 					switch(c)
 					{
 						case '>'.code:
-							if( nsubs == 0 )
-								parent.children.push({ kind : Text(""), pmin : p, pmax : p });
+							//if( nsubs == 0 )
+							//	parent.children.push({ kind : Text(""), pmin : p, pmax : p });
 							return p;
 						default :
 							error("Expected >", p);
@@ -474,7 +482,7 @@ class MarkupParser {
 			}
 			if (p != start || nsubs == 0) {
 				buf.addSub(str, start, p-start);
-				addChild({ kind : Text(buf.toString()), pmin : start, pmax : p });
+				addText();
 			}
 			return p;
 		}

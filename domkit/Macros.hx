@@ -105,9 +105,8 @@ class Macros {
 			var ct = comp.baseType;
 			var exprs : Array<Expr> = if( isRoot )
 				[
-					(macro document = new domkit.Document()),
 					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,(null:domkit.Element<$componentsType>),(this : $ct))),
-					(macro document.elements.push(tmp)),
+					(macro document = new domkit.Document(tmp)),
 				];
 			else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp)];
@@ -133,8 +132,6 @@ class Macros {
 			}
 			return macro $b{exprs};
 		case Text(text):
-			var text = StringTools.trim(text);
-			if( text == "" ) return null;
 			return macro {
 				var tmp = domkit.Element.create("text",null,tmp);
 				tmp.setAttribute("text",VString($v{text}));
