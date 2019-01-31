@@ -1,4 +1,4 @@
-class Obj extends Components.DivComponent implements uikit.Object {
+class Obj extends Components.DivComponent implements domkit.Object {
 
 	static var SRC =
 	<mydiv class="foo" padding-left="$value" color="blue">
@@ -21,8 +21,8 @@ class Test {
 		trace(o.paddingLeft); // 55
 		trace(o.sub.paddingLeft); // 0
 
-		var css = new uikit.CssStyle();
-		css.add(new uikit.CssParser().parseSheet(".foo custom { padding-left : 50; }"));
+		var css = new domkit.CssStyle();
+		css.add(new domkit.CssParser().parseSheet(".foo custom { padding-left : 50; }"));
 		o.setStyle(css);
 
 		trace(o.sub.paddingLeft); // 50

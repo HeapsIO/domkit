@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 using haxe.macro.Tools;
@@ -23,7 +23,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	public var parserType : ComplexType;
 	public var setExprs : Map<String, Expr> = new Map();
 	public var componentsType : ComplexType;
-	var parser : uikit.CssValue.ValueParser;
+	var parser : CssValue.ValueParser;
 	var classType : ClassType;
 	var baseClass : ClassType;
 
@@ -64,7 +64,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 		var baseT = t;
 		for( i in c.interfaces )
-			if( i.t.toString() == "uikit.ComponentDecl" )
+			if( i.t.toString() == "domkit.ComponentDecl" )
 				baseT = i.params[0];
 		baseClass = switch( baseT.follow() ) { case TInst(c,_): c.get(); default: throw "assert"; };
 		if( baseT != t )
@@ -85,8 +85,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				parserType = parent.parserType;
 				parser = parent.parser;
 			} else {
-				parserType = macro : uikit.CssValue.ValueParser;
-				parser = new uikit.CssValue.ValueParser();
+				parserType = macro : domkit.CssValue.ValueParser;
+				parser = new domkit.CssValue.ValueParser();
 			}
 			return;
 		}
@@ -143,7 +143,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					error(parserType.toString()+" has no field "+fname, pm.params[0].pos);
 				prop = {
 					def : null,
-					expr : macro (parser.$fname : uikit.CssValue -> $propType),
+					expr : macro (parser.$fname : domkit.CssValue -> $propType),
 					value : function(css:CssValue) : Dynamic {
 						return Reflect.callMethod(this.parser,meth,[css]);
 					}
@@ -285,7 +285,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			parentExpr = macro null;
 		else {
 			var parentName = runtimeName(parent.name);
-			parentExpr = macro @:privateAccess uikit.$parentName.inst;
+			parentExpr = macro @:privateAccess domkit.$parentName.inst;
 		}
 		var path;
 		var setters = new Map();
@@ -356,14 +356,14 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				parser = new $parserClass();
 				$b{handlers};
 			}
-			static var inst = new uikit.$cname();
+			static var inst = new domkit.$cname();
 		}).fields;
 
 		var td : TypeDefinition = {
 			pos : classType.pos,
-			pack : ["uikit"],
+			pack : ["domkit"],
 			name : cname,
-			kind : TDClass({ pack : ["uikit"], name : "Component", params : [TPType(componentsType),TPType(baseType)] }),
+			kind : TDClass({ pack : ["domkit"], name : "Component", params : [TPType(componentsType),TPType(baseType)] }),
 			fields : fields,
 		};
 		return td;
@@ -371,7 +371,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 	public function getRuntimeComponentType() {
 		var name = runtimeName(name);
-		return macro : uikit.$name;
+		return macro : domkit.$name;
 	}
 
 }

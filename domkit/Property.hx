@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 
 class InvalidProperty {
 	public var message : String;
@@ -10,7 +10,7 @@ class InvalidProperty {
 class Property {
 	public var name(default,null) : String;
 	public var id(default,null) : Int;
-	@:allow(uikit.CssStyle) var tag : Int = 0;
+	@:allow(domkit.CssStyle) var tag : Int = 0;
 
 	function new(name) {
 		this.id = ALL.length;

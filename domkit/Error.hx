@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 
 class Error {
 	public var message : String;

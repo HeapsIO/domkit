@@ -1,14 +1,15 @@
-package uikit;
+package domkit;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import uikit.Error;
+import domkit.Error;
+using haxe.macro.Tools;
 #end
 
 class Macros {
 	#if macro
 
-	@:persistent static var COMPONENTS = new Map<String, uikit.MetaComponent>();
+	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
 	@:persistent static var componentsType : ComplexType;
 	static var __ = addComponents(); // each compilation
 
@@ -30,18 +31,18 @@ class Macros {
 			switch( t ) {
 			case TInst(c,_):
 				for( i in c.get().interfaces )
-					if( i.t.toString() == "uikit.ComponentDecl" )
+					if( i.t.toString() == "domkit.ComponentDecl" )
 						componentsType = haxe.macro.Tools.TTypeTools.toComplexType(i.params[0]);
 			default:
 			}
 		}
 		try {
-			var mt = new uikit.MetaComponent(componentsType, t);
+			var mt = new domkit.MetaComponent(componentsType, t);
 			componentsType = mt.componentsType;
 			var td = mt.buildRuntimeComponent();
 			Context.defineType(td, mt.getModulePath());
 			COMPONENTS.set(mt.name, mt);
-		} catch( e : uikit.MetaComponent.MetaError ) {
+		} catch( e : domkit.MetaComponent.MetaError ) {
 			Context.error(e.message, e.position);
 		}
 	}
@@ -104,12 +105,12 @@ class Macros {
 			var ct = comp.baseType;
 			var exprs : Array<Expr> = if( isRoot )
 				[
-					(macro document = new uikit.Document()),
-					(macro var tmp : uikit.Element<$componentsType> = uikit.Element.create($v{name},$attributes,(null:uikit.Element<$componentsType>),(this : $ct))),
+					(macro document = new domkit.Document()),
+					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,(null:domkit.Element<$componentsType>),(this : $ct))),
 					(macro document.elements.push(tmp)),
 				];
 			else
-				[macro var tmp = uikit.Element.create($v{name},$attributes, tmp)];
+				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp)];
 			for( a in m.attributes )
 				if( a.name == "name" ) {
 					var field = switch( a.value ) {
@@ -135,14 +136,14 @@ class Macros {
 			var text = StringTools.trim(text);
 			if( text == "" ) return null;
 			return macro {
-				var tmp = uikit.Element.create("text",null,tmp);
+				var tmp = domkit.Element.create("text",null,tmp);
 				tmp.setAttribute("text",VString($v{text}));
 			};
 		case CodeBlock(expr):
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
 			switch( expr.expr ) {
 			case EConst(CIdent(v)):
-				return macro uikit.Element.create("object",null,tmp,$i{v});
+				return macro domkit.Element.create("object",null,tmp,$i{v});
 			default:
 				replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
 			}
@@ -193,10 +194,10 @@ class Macros {
 
 						var initExpr = buildComponentsInit(root, fields, pos, true);
 
-						if( cl.superClass != null && !lookupInterface(cl.superClass.t,"h2d.uikit.Object") )
+						if( cl.superClass != null && !lookupInterface(cl.superClass.t,"domkit.Object") )
 							fields = fields.concat((macro class {
-								public var document : uikit.Document<$componentsType>;
-								public function setStyle( style : uikit.CssStyle ) {
+								public var document : domkit.Document<$componentsType>;
+								public function setStyle( style : domkit.CssStyle ) {
 									document.setStyle(style);
 								}
 							}).fields);

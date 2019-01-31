@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 
 enum SetAttributeResult {
 	Ok;

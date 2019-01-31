@@ -1,6 +1,6 @@
 {
-	"name" : "uikit",
-	"url" : "https://github.com/ncannasse/uikit",
+	"name" : "domkit",
+	"url" : "https://github.com/ncannasse/domkit",
 	"license" : "BSD",
     "description" : "CSS Components UI framework",
     "version" : "0.1.0",

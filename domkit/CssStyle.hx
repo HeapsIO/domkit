@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 
 private class RuleStyle {
 	public var p : Property;
@@ -21,7 +21,7 @@ private class Rule {
 	}
 }
 
-@:access(uikit.Element)
+@:access(domkit.Element)
 class CssStyle {
 
 	static var TAG = 0;

@@ -1,5 +1,5 @@
-package uikit;
-import uikit.Property.InvalidProperty;
+package domkit;
+import domkit.Property.InvalidProperty;
 
 enum CssValue {
 	VIdent( i : String );

@@ -1,5 +1,5 @@
-package uikit;
-import uikit.CssValue;
+package domkit;
+import domkit.CssValue;
 
 enum Token {
 	TIdent( i : String );

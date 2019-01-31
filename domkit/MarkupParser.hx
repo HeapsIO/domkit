@@ -1,4 +1,4 @@
-package uikit;
+package domkit;
 
 using StringTools;
 

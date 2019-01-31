@@ -1,5 +1,5 @@
-package uikit;
-import uikit.Property;
+package domkit;
+import domkit.Property;
 
 class PropertyHandler<O,P> {
 
