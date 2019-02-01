@@ -22,13 +22,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	public var baseType : ComplexType;
 	public var parserType : ComplexType;
 	public var setExprs : Map<String, Expr> = new Map();
-	public var componentsType : ComplexType;
 	var parser : CssValue.ValueParser;
 	var classType : ClassType;
 	var baseClass : ClassType;
 
-	public function new( componentsType, t : Type ) {
-		this.componentsType = componentsType;
+	public function new( t : Type ) {
 		classType = switch( t ) {
 		case TInst(c, _): c.get();
 		default: error("Invalid type",haxe.macro.Context.currentPos());
@@ -48,7 +46,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var csup = ccur.superClass.t.get();
 			var cname = getCompName(csup);
 			if( cname != null ) {
-				metaParent = Component.get(cname);
+				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0) catch( e : Error ) null;
 				if( metaParent == null ) error("Missing super component registration "+cname, c.pos);
 				break;
 			}
@@ -57,7 +55,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		super(name,null,metaParent);
 
 		initParser(c);
-		if( name == "object" ) {
+		if( metaParent == null ) {
 			addHandler("class", parser.parseArray.bind(parser.parseIdent), null, macro : String);
 			addHandler("id", parser.parseIdent, null, macro : String);
 		}
@@ -277,7 +275,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return classType.module;
 	}
 
-	public function buildRuntimeComponent() {
+	public function buildRuntimeComponent( componentsType ) {
 		var cname = runtimeName(name);
 		var createMethod = null;
 		var parentExpr;

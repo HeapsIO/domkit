@@ -1,4 +1,4 @@
-class Obj extends Components.DivComponent implements domkit.Object {
+class Obj extends Components.MydivComponent implements domkit.Object {
 
 	static var SRC =
 	<mydiv class="foo" padding-left="$value" color="blue">

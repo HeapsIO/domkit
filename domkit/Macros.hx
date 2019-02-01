@@ -9,62 +9,43 @@ using haxe.macro.Tools;
 class Macros {
 	#if macro
 
-	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
+	static var COMPONENTS = new Map<String, domkit.MetaComponent>();
+	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
-	static var __ = addComponents(); // each compilation
 
-	public static function registerComponentClass( path : String ) {
-		var path = path.split(".");
-		var sub = path[path.length - 2];
-		registerComponent(TPath({
-			pack : path,
-			sub : sub != null && sub.charCodeAt(0) >= "A".code && sub.charCodeAt(0) <= "Z".code ? path.pop() : null,
-			name : path.pop()
-		}));
+	public static function registerComponentsPath( path : String ) {
+		if( componentsSearchPath.indexOf(path) < 0 )
+			componentsSearchPath.push(path);
 	}
 
-	public static function registerComponent( type : ComplexType ) {
-		var pos = Context.currentPos();
-		var t = Context.resolveType(type, pos);
-		if( componentsType == null ) {
-			componentsType = type;
-			switch( t ) {
-			case TInst(c,_):
-				for( i in c.get().interfaces )
-					if( i.t.toString() == "domkit.ComponentDecl" )
-						componentsType = haxe.macro.Tools.TTypeTools.toComplexType(i.params[0]);
-			default:
-			}
-		}
-		try {
-			var mt = new domkit.MetaComponent(componentsType, t);
-			componentsType = mt.componentsType;
-			var td = mt.buildRuntimeComponent();
-			Context.defineType(td, mt.getModulePath());
-			COMPONENTS.set(mt.name, mt);
-		} catch( e : domkit.MetaComponent.MetaError ) {
-			Context.error(e.message, e.position);
-		}
-	}
+	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
+		var c = COMPONENTS.get(name);
+		if( c != null )
+			return c;
 
-	static function addComponents() {
-		haxe.macro.Context.onAfterTyping(function(_) {
-			for( mt in COMPONENTS ) {
-				try {
-					Context.resolveType(mt.getRuntimeComponentType(), Context.currentPos());
-				} catch( e : Dynamic ) {
-					Context.error("Error "+e, @:privateAccess mt.classType.pos);
-				}
-			}
-		});
+		var uname = name.charAt(0).toUpperCase()+name.substr(1);
+		for( p in componentsSearchPath ) {
+			var path = p.split("$").join(uname);
+			var t = try Context.getType(path) catch( e : Dynamic ) null;
+			if( t == null ) continue;
+			// force meta component build
+			Context.resolveType(TPath({
+				pack : ["domkit"],
+				name : "ComponentBuilder",
+				params : [TPType(t.toComplexType())],
+			}),Context.currentPos());
+			var c = COMPONENTS.get(name);
+			if( c == null )
+				error(t.toString()+" does not define component "+name, pmin, pmax);
+			return c;
+		}
+		return error("Could not load component '"+name+"'", pmin, pmax);
 	}
 
 	static function buildComponentsInit( m : MarkupParser.Markup, fields : Array<haxe.macro.Expr.Field>, pos : Position, isRoot = false ) : Expr {
 		switch (m.kind) {
 		case Node(name):
-			var comp = COMPONENTS.get(name);
-			if( comp == null )
-				error("Unknown component "+name, m.pmin, m.pmax);
+			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
 			var avalues = [];
 			var aexprs = [];
 			for( attr in m.attributes ) {
@@ -132,6 +113,7 @@ class Macros {
 			}
 			return macro $b{exprs};
 		case Text(text):
+			var c = loadComponent("text",m.pmin, m.pmax);
 			return macro {
 				var tmp = domkit.Element.create("text",null,tmp);
 				tmp.setAttribute("text",VString($v{text}));
@@ -175,6 +157,36 @@ class Macros {
 			c = sup.t;
 		}
 		return false;
+	}
+
+	public static function buildMetaComponent() {
+		var t = Context.getLocalType();
+		switch( t ) {
+		case TInst(_,[t]):
+			try {
+				var mt = new domkit.MetaComponent(t);
+				if( componentsType == null ) {
+					componentsType = t.toComplexType();
+					switch( t ) {
+					case TInst(c,_):
+						for( i in c.get().interfaces )
+							if( i.t.toString() == "domkit.ComponentDecl" )
+								componentsType = haxe.macro.Tools.TTypeTools.toComplexType(i.params[0]);
+					default:
+					}
+				}
+				var td = mt.buildRuntimeComponent(componentsType);
+				Context.defineType(td, mt.getModulePath());
+				COMPONENTS.set(mt.name, mt);
+				return mt.getRuntimeComponentType();
+			} catch( e : domkit.MetaComponent.MetaError ) {
+				Context.error(e.message, e.position);
+				return null;
+			}
+		default:
+			throw "assert";
+		}
+		return null;
 	}
 
 	public static function buildObject() {
