@@ -45,6 +45,30 @@ class Macros {
 		switch (m.kind) {
 		case Node(name):
 			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
+			var args = comp.getConstructorArgs();
+			var eargs = [];
+			if( isRoot ) {
+				if( m.arguments.length > 0 )
+					error("Arguments should be passed in super constructor", m.pmin, m.pmax);
+			} else {
+				if( m.arguments.length > args.length )
+					error("Component requires "+args.length+" arguments ("+[for( a in args ) a.name].join(", ")+")", m.pmin, m.pmin + name.length);
+				for( i in 0...args.length ) {
+					var a = args[i];
+					var cur = m.arguments[i];
+					if( cur == null ) {
+						if( !a.opt )
+							error("Missing argument "+a.name+"("+a.type.toString()+")", m.pmin, m.pmin + name.length);
+						continue;
+					}
+					switch( cur.value ) {
+					case Code(expr):
+						eargs.push({ expr : ECheckType(expr,a.type), pos : expr.pos });
+					case RawValue(v):
+						error("TODO", cur.pmin, cur.pmax);
+					}
+				}
+			}
 			var avalues = [];
 			var aexprs = [];
 			for( attr in m.attributes ) {
@@ -89,7 +113,7 @@ class Macros {
 					(macro document = new domkit.Document(tmp)),
 				];
 			else
-				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp)];
+				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
 			for( a in m.attributes )
 				if( a.name == "name" ) {
 					var field = switch( a.value ) {
@@ -186,10 +210,15 @@ class Macros {
 					default:
 					}
 				}
-				var td = mt.buildRuntimeComponent(componentsType);
-				Context.defineType(td, mt.getModulePath());
+				var t = mt.getRuntimeComponentType();
+				try {
+					Context.resolveType(t, Context.currentPos());
+				} catch( e : Dynamic ) {
+					var td = mt.buildRuntimeComponent(componentsType);
+					Context.defineType(td, mt.getModulePath());
+				}
 				COMPONENTS.set(mt.name, mt);
-				return mt.getRuntimeComponentType();
+				return t;
 			} catch( e : domkit.MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
 				return null;

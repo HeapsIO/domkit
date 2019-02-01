@@ -26,6 +26,7 @@ enum abstract MToken(Int) {
 	var DOCTYPE;
 	var CDATA;
 	var ESCAPE;
+	var NODE_ARGS;
 }
 
 enum MarkupKind {
@@ -43,6 +44,7 @@ typedef Markup = {
 	var kind : MarkupKind;
 	var pmin : Int;
 	var pmax : Int;
+	var ?arguments : Array<{ value : AttributeValue, pmin : Int, pmax : Int }>;
 	var ?attributes : Array<{ name : String, value : AttributeValue, pmin : Int, vmin : Int, pmax : Int }>;
 	var ?children : Array<Markup>;
 }
@@ -113,6 +115,7 @@ class MarkupParser {
 		var nsubs = 0;
 		var nbrackets = 0;
 		var nbraces = 0;
+		var nparents = 0;
 		var attr_start = 0;
 		var c = str.fastCodeAt(p);
 		var buf = new StringBuf();
@@ -137,6 +140,21 @@ class MarkupParser {
 				};
 				addChild(child);
 			}
+		}
+		inline function addNodeArg(last) {
+			var base = str.substr(start, p - start);
+			var arg = StringTools.trim(base);
+			if( arg == "" && (!last || obj.arguments.length > 0) )
+				error("Empty argument", start, p + 1);
+			start += base.indexOf(arg);
+			if( arg.charCodeAt(0) == "'".code || arg.charCodeAt(0) == '"'.code ) {
+				if( arg.charCodeAt(arg.length-1) != arg.charCodeAt(0) )
+					error("Unclosed string", start, start + arg.length);
+				obj.arguments.push({ value : RawValue(arg.substr(1,arg.length - 2)), pmin : filePos + start + 1, pmax : filePos + start + arg.length - 1 });
+			} else {
+				obj.arguments.push({ value : parseCode(arg,start), pmin : filePos + start, pmax : filePos + start + arg.length });
+			}
+			start = p + 1;
 		}
 		while (!StringTools.isEof(c)) {
 			switch(state) {
@@ -280,6 +298,7 @@ class MarkupParser {
 							kind : Node(str.substr(start, p - start)),
 							pmin : start,
 							pmax : p,
+							arguments : [],
 							attributes : [],
 							children : [],
 						};
@@ -295,6 +314,10 @@ class MarkupParser {
 							state = WAIT_END;
 						case '>'.code:
 							state = CHILDS;
+						case '('.code:
+							state = NODE_ARGS;
+							start = p + 1;
+							nparents = 1;
 						default:
 							state = ATTRIB_NAME;
 							start = p;
@@ -369,6 +392,18 @@ class MarkupParser {
 							state = IGNORE_SPACES;
 							next = BODY;
 						}
+					}
+				case NODE_ARGS:
+					switch( c ) {
+					case ")".code:
+						nparents--;
+						if( nparents == 0 ) {
+							addNodeArg(true);
+							state = IGNORE_SPACES;
+							next = BODY;
+						}
+					case ','.code if( nparents == 1 ):
+						addNodeArg(false);
 					}
 				case CHILDS:
 					p = doParse(str, p, obj);

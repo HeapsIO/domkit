@@ -34,7 +34,7 @@ interface ComponentDecl<T> {
 class Component<BaseT,T> {
 
 	public var name : String;
-	public var make : BaseT -> T;
+	public var make : Array<Dynamic> -> BaseT -> T;
 	public var parent : Component<BaseT,Dynamic>;
 	var propsHandler : Array<PropertyHandler<T,Dynamic>>;
 

@@ -25,6 +25,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	var parser : CssValue.ValueParser;
 	var classType : ClassType;
 	var baseClass : ClassType;
+	var constructorPath : Array<String>;
+	var constructorArgs : Array<{ type : ComplexType, name : String, opt : Bool }>;
 
 	public function new( t : Type ) {
 		classType = switch( t ) {
@@ -72,6 +74,53 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		for( f in fields ) {
 			if( !f.meta.has(":p") ) continue;
 			defineField(f);
+		}
+	}
+
+	public function getConstructorArgs() {
+		if( constructorArgs == null ) initConstructor();
+		return constructorArgs;
+	}
+
+	function initConstructor() {
+		var newType;
+		var createMethod = null;
+		var path;
+
+		for( f in classType.statics.get() )
+			if( f.name == "create" )
+				createMethod = f;
+
+		if( createMethod != null ) {
+			var classPath = makeTypePath(classType);
+			path = classPath.concat(["create"]);
+			newType = createMethod.type;
+		} else {
+			path = switch( baseType ) {
+			case TPath(p):
+				var path = p.pack.copy();
+				path.push(p.name);
+				if( p.sub != null ) path.push(p.sub);
+				path.push("new");
+				path;
+			default: throw "assert";
+			}
+			if( baseClass.constructor == null )
+				error(baseClass.name+" requires a constructor", baseClass.pos);
+			newType = baseClass.constructor.get().type;
+		}
+		constructorPath = path;
+
+		switch( newType.follow() ) {
+		case TFun(args,_):
+			args.pop(); // parent
+			constructorArgs = [for( a in args ) {
+				type : a.t.toComplexType(),
+				name : a.name,
+				opt : a.opt,
+			}];
+		default:
+			error("Create method is not a function", classType.pos);
 		}
 	}
 
@@ -195,9 +244,14 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return out.toString().split("_").join("-");
 	}
 
-	function makeTypeExpr( t : BaseType, pos : Position ) {
+	function makeTypePath( t : BaseType ) {
 		var path = t.module.split(".");
 		if( t.name != path[path.length-1] ) path.push(t.name);
+		return path;
+	}
+
+	function makeTypeExpr( t : BaseType, pos : Position ) {
+		var path = makeTypePath(t);
 		return haxe.macro.MacroStringTools.toFieldExpr(path);
 	}
 
@@ -276,8 +330,9 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	}
 
 	public function buildRuntimeComponent( componentsType ) {
+		getConstructorArgs();
+
 		var cname = runtimeName(name);
-		var createMethod = null;
 		var parentExpr;
 		if( parent == null )
 			parentExpr = macro null;
@@ -290,43 +345,21 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		for( f in classType.statics.get() ) {
 			if( !f.kind.match(FMethod(_)) )
 				continue;
-			if( f.name == "create" )
-				createMethod = f;
-			else if( StringTools.startsWith(f.name,"set_") )
+			if( StringTools.startsWith(f.name,"set_") )
 				setters.set(fieldToProp(f.name.substr(4)), true);
 		}
-		var classPath = classType.module.split(".");
-		if( classType.name != classPath[classPath.length-1] ) classPath.push(classType.name);
-
-		var newType;
-		if( createMethod != null ) {
-			path = classPath.concat(["create"]);
-			newType = createMethod.type;
-		} else {
-			path = switch( baseType ) {
-			case TPath(p):
-				var path = p.pack.copy();
-				path.push(p.name);
-				if( p.sub != null ) path.push(p.sub);
-				path.push("new");
-				path;
-			default: throw "assert";
-			}
-			if( baseClass.constructor == null )
-				error(baseClass.name+" requires a constructor", baseClass.pos);
-			newType = baseClass.constructor.get().type;
+		var classPath = makeTypePath(classType);
+		var newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, classType.pos);
+		if( constructorArgs.length == 0 )
+			newExpr = macro function(_,parent) return ($newExpr)(parent);
+		else {
+			var eargs = [];
+			for( i in 0...constructorArgs.length )
+				eargs.push(macro args[$v{i}]);
+			eargs.push(macro parent);
+			newExpr = macro function(args,parent) return ($newExpr)($a{eargs});
 		}
 
-		var newExpr = haxe.macro.MacroStringTools.toFieldExpr(path, classType.pos);
-/*		switch( newType.follow() ) {
-		case TFun(args,_):
-			args.pop(); // parent
-			if( args.length > 0 ) {
-				error("TODO: constructor arguments support", classType.pos);
-			}
-		default:
-		}
-*/
 		var handlers = [];
 		for( i in 0...propsHandler.length ) {
 			var h = propsHandler[i];
