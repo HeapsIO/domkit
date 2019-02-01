@@ -21,6 +21,8 @@ enum Token {
 	TSpaces;
 	TSlash;
 	TStar;
+	TBkOpen;
+	TBkClose;
 }
 
 class CssClass {
@@ -52,7 +54,8 @@ class CssParser {
 	}
 
 	function unexpected( t : Token ) : Dynamic {
-		error("Unexpected " + tokenString(t));
+		var str = tokenString(t);
+		throw new Error("Unexpected " + str, pos - str.length, pos);
 		return null;
 	}
 
@@ -77,6 +80,8 @@ class CssParser {
 			case TSpaces: "space";
 			case TSlash: "/";
 			case TStar: "*";
+			case TBkOpen: "[";
+			case TBkClose: "]";
 		};
 	}
 
@@ -131,6 +136,7 @@ class CssParser {
 		case VCall(f,args): f+"(" + [for( v in args ) valueStr(v)].join(", ") + ")";
 		case VLabel(label, v): valueStr(v) + " !" + label;
 		case VSlash: "/";
+		case VArray(v, content): valueStr(v) + "[" + (content == null ? "" : valueStr(content)) + "]";
 		}
 	}
 
@@ -335,6 +341,10 @@ class CssParser {
 				push(t);
 				v;
 			}
+		case TBkOpen:
+			var br = readValue(true);
+			expect(TBkClose);
+			return readValueNext(VArray(v, br));
 		case TExclam:
 			var t = readToken();
 			switch( t ) {
@@ -502,6 +512,8 @@ class CssParser {
 			case "}".code: return TBrClose;
 			case ",".code: return TComma;
 			case "*".code: return TStar;
+			case "[".code: return TBkOpen;
+			case "]".code: return TBkClose;
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {

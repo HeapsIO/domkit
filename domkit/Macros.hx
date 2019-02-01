@@ -26,8 +26,7 @@ class Macros {
 		var uname = name.charAt(0).toUpperCase()+name.substr(1);
 		for( p in componentsSearchPath ) {
 			var path = p.split("$").join(uname);
-			var t = try Context.getType(path) catch( e : Dynamic ) null;
-			if( t == null ) continue;
+			var t = try Context.getType(path) catch( e : Dynamic ) continue;
 			// force meta component build
 			Context.resolveType(TPath({
 				pack : ["domkit"],
@@ -97,13 +96,25 @@ class Macros {
 					case RawValue(v): v;
 					default: continue;
 					}
-					exprs.push(macro this.$field = cast tmp.obj);
-					fields.push({
-						name : field,
-						access : [APublic],
-						pos : makePos(pos, a.pmin, a.pmax),
-						kind : FVar(ct),
-					});
+					var isArray = StringTools.endsWith(field,"[]");
+					if( isArray ) {
+						field = field.substr(0,field.length-2);
+						exprs.push(macro this.$field.push(cast tmp.obj));
+						fields.push({
+							name : field,
+							access : [APublic],
+							pos : makePos(pos, a.pmin, a.pmax),
+							kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), macro []),
+						});
+					} else {
+						exprs.push(macro this.$field = cast tmp.obj);
+						fields.push({
+							name : field,
+							access : [APublic],
+							pos : makePos(pos, a.pmin, a.pmax),
+							kind : FVar(ct),
+						});
+					}
 				}
 			for( e in aexprs )
 				exprs.push(e);
@@ -132,9 +143,9 @@ class Macros {
 
 	static function replaceLoop( e : Expr, callb : MarkupParser.Markup -> Expr ) {
 		switch( e.expr ) {
-		case EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }):
+		case EMeta({ name : ":markup" },{ expr : EConst(CString(str)), pos : pos }):
 			var p = new MarkupParser();
-			var pinf = Context.getPosInfos(e.pos);
+			var pinf = Context.getPosInfos(pos);
 			var root = p.parse(str,pinf.file,pinf.min).children[0];
 			e.expr = callb(root).expr;
 		default:
@@ -249,7 +260,7 @@ class Macros {
 
 	static function makePos( p : Position, pmin : Int, pmax : Int ) {
 		var p0 = Context.getPosInfos(p);
-		return Context.makePosition({ min : p0.min + pmin, max : p0.min + pmax, file : p0.file });
+		return Context.makePosition({ min : pmin, max : pmax, file : p0.file });
 	}
 
 	#end

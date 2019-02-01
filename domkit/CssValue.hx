@@ -13,6 +13,7 @@ enum CssValue {
 	VCall( f : String, vl : Array<CssValue> );
 	VLabel( v : String, val : CssValue );
 	VSlash;
+	VArray( v : CssValue, ?content : CssValue );
 }
 
 class ValueParser {
@@ -32,6 +33,14 @@ class ValueParser {
 		return switch( v ) {
 		case VIdent(i): i;
 		case VString(s): s;
+		default: invalidProp();
+		}
+	}
+
+	public function parseName( v : CssValue ) {
+		return switch( v ) {
+		case VIdent(n): n;
+		case VArray(VIdent(n), null): n;
 		default: invalidProp();
 		}
 	}

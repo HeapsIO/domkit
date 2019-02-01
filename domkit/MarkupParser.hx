@@ -79,7 +79,7 @@ class MarkupParser {
 	}
 
 	function error( msg : String, position : Int, pmax = -1 ) : Dynamic {
-		throw new Error(msg, position, pmax);
+		throw new Error(msg, filePos + position, pmax < 0 ? -1 : filePos + pmax);
 		return null;
 	}
 
@@ -120,6 +120,8 @@ class MarkupParser {
 		var escapeNext = BEGIN;
 		var attrValQuote = -1;
 		inline function addChild(m:Markup) {
+			m.pmin += filePos;
+			m.pmax += filePos;
 			parent.children.push(m);
 			nsubs++;
 		}
@@ -352,7 +354,7 @@ class MarkupParser {
 							buf.addSub(str, start, p - start);
 							var val = buf.toString();
 							buf = new StringBuf();
-							obj.attributes.push({ name : aname, value : parseAttr(val,start), pmin : attr_start, vmin : start, pmax : p });
+							obj.attributes.push({ name : aname, value : parseAttr(val,start), pmin : attr_start + filePos, vmin : start + filePos, pmax : p + filePos });
 							state = IGNORE_SPACES;
 							next = BODY;
 					}
@@ -363,7 +365,7 @@ class MarkupParser {
 					case '}'.code:
 						nbraces--;
 						if( nbraces == 0 ) {
-							obj.attributes.push({ name : aname, value : parseCode(str.substr(start, p-start),start), pmin : attr_start, vmin : start, pmax : p });
+							obj.attributes.push({ name : aname, value : parseCode(str.substr(start, p-start),start), pmin : attr_start + filePos, vmin : start + filePos, pmax : p + filePos });
 							state = IGNORE_SPACES;
 							next = BODY;
 						}

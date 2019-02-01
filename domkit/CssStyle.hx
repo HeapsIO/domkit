@@ -47,8 +47,8 @@ class CssStyle {
 			e.needStyleRefresh = false;
 			var head = null;
 			var tag = ++TAG;
-			for( p in e.currentSet )
-				p.tag = tag;
+			for( p in e.style )
+				p.p.tag = tag;
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
 				var match = false;
