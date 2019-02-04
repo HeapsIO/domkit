@@ -9,9 +9,10 @@ using haxe.macro.Tools;
 class Macros {
 	#if macro
 
-	static var COMPONENTS = new Map<String, domkit.MetaComponent>();
+	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
 	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
+	static var RESOLVED_COMPONENTS = new Map();
 
 	public static function registerComponentsPath( path : String ) {
 		if( componentsSearchPath.indexOf(path) < 0 )
@@ -19,25 +20,30 @@ class Macros {
 	}
 
 	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
-		var c = COMPONENTS.get(name);
-		if( c != null )
-			return c;
-
+		var c = RESOLVED_COMPONENTS.get(name);
+		if( c != null ) {
+			Context.getType(c.path);
+			return c.c;
+		}
+		var lastError = null;
 		var uname = name.charAt(0).toUpperCase()+name.substr(1);
 		for( p in componentsSearchPath ) {
 			var path = p.split("$").join(uname);
 			var t = try Context.getType(path) catch( e : Dynamic ) continue;
-			// force meta component build
-			Context.resolveType(TPath({
-				pack : ["domkit"],
-				name : "ComponentBuilder",
-				params : [TPType(t.toComplexType())],
-			}),Context.currentPos());
+			switch( t.follow() ) {
+			case TInst(c,_): c.get(); // force build
+			default:
+			}
 			var c = COMPONENTS.get(name);
-			if( c == null )
-				error(t.toString()+" does not define component "+name, pmin, pmax);
+			if( c == null ) {
+				lastError = t;
+				continue;
+			}
+			RESOLVED_COMPONENTS.set(name, { c : c, path : path });
 			return c;
 		}
+		if( lastError != null )
+			error(lastError.toString()+" does not define component "+name, pmin, pmax);
 		return error("Could not load component '"+name+"'", pmin, pmax);
 	}
 
@@ -194,41 +200,6 @@ class Macros {
 		return false;
 	}
 
-	public static function buildMetaComponent() {
-		var t = Context.getLocalType();
-		switch( t ) {
-		case TInst(_,[t]):
-			try {
-				var mt = new domkit.MetaComponent(t);
-				if( componentsType == null ) {
-					componentsType = t.toComplexType();
-					switch( t ) {
-					case TInst(c,_):
-						for( i in c.get().interfaces )
-							if( i.t.toString() == "domkit.ComponentDecl" )
-								componentsType = haxe.macro.Tools.TTypeTools.toComplexType(i.params[0]);
-					default:
-					}
-				}
-				var t = mt.getRuntimeComponentType();
-				try {
-					Context.resolveType(t, Context.currentPos());
-				} catch( e : Dynamic ) {
-					var td = mt.buildRuntimeComponent(componentsType);
-					Context.defineType(td, mt.getModulePath());
-				}
-				COMPONENTS.set(mt.name, mt);
-				return t;
-			} catch( e : domkit.MetaComponent.MetaError ) {
-				Context.error(e.message, e.position);
-				return null;
-			}
-		default:
-			throw "assert";
-		}
-		return null;
-	}
-
 	public static function buildObject() {
 		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
@@ -242,8 +213,18 @@ class Macros {
 						var root = p.parse(str,pinf.file,pinf.min).children[0];
 
 						var initExpr = buildComponentsInit(root, fields, pos, true);
+						var csup = cl.superClass;
+						var isFirst = true;
+						while( csup != null ) {
+							var cl = csup.t.get();
+							if( cl.meta.has(":hasDomKitSrc") ) {
+								isFirst = false;
+								break;
+							}
+							csup = cl.superClass;
+						}
 
-						if( cl.superClass != null && !lookupInterface(cl.superClass.t,"domkit.Object") )
+						if( isFirst )
 							fields = fields.concat((macro class {
 								public var document : domkit.Document<$componentsType>;
 								public function setStyle( style : domkit.CssStyle ) {
@@ -274,11 +255,27 @@ class Macros {
 					} catch( e : Error ) {
 						Context.error(e.message, makePos(pos,e.pmin,e.pmax));
 					}
+					cl.meta.add(":hasDomkitSrc", [], cl.pos);
 					fields.remove(f);
 					break;
 				default:
 				}
 			}
+		var isComp = cl.meta.has(":uiComp");
+		if( isComp ) {
+			try {
+				var m = new MetaComponent(Context.getLocalType(), fields);
+				if( componentsType == null ) componentsType = m.baseType;
+				Context.defineType(m.buildRuntimeComponent(componentsType));
+				var t = m.getRuntimeComponentType();
+				fields.push((macro class {
+					static var ref : $t = null;
+				}).fields[0]);
+				COMPONENTS.set(m.name, m);
+			} catch( e : MetaComponent.MetaError ) {
+				Context.error(e.message, e.position);
+			}
+		}
 		return fields;
 	}
 

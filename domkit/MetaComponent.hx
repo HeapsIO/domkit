@@ -28,7 +28,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	var constructorPath : Array<String>;
 	var constructorArgs : Array<{ type : ComplexType, name : String, opt : Bool }>;
 
-	public function new( t : Type ) {
+	public function new( t : Type, fields : Array<Field> ) {
 		classType = switch( t ) {
 		case TInst(c, _): c.get();
 		default: error("Invalid type",haxe.macro.Context.currentPos());
@@ -38,12 +38,9 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		var name = getCompName(c);
 		if( name == null ) error("Missing :uiComp", c.pos);
 
-		var fields = [];
 		var ccur = c;
 		var metaParent = null;
 		while( true ) {
-			var fl = ccur.fields.get();
-			fields = fields.concat(fl);
 			if( ccur.superClass == null ) break;
 			var csup = ccur.superClass.t.get();
 			var cname = getCompName(csup);
@@ -71,32 +68,36 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			baseClass.meta.add(":uiComp",[{ expr : EConst(CString(name)), pos : c.pos }], c.pos);
 		baseType = baseT.toComplexType();
 
+		var fconstr = null;
 		for( f in fields ) {
-			if( !f.meta.has(":p") ) continue;
-			defineField(f);
+			for( m in f.meta )
+				if( m.name == ":p" ) {
+					defineField(f, m);
+					break;
+				}
+			if( f.name == "new" && fconstr == null )
+				fconstr = f;
+			if( f.name == "create" && f.access.indexOf(AStatic) < 0 )
+				fconstr = f;
 		}
+		initConstructor(fconstr);
 	}
 
 	public function getConstructorArgs() {
-		if( constructorArgs == null ) initConstructor();
-		return constructorArgs;
+		if( constructorArgs != null )
+			return constructorArgs;
+		var p = Std.instance(parent, MetaComponent);
+		if( p == null )
+			return null;
+		return p.getConstructorArgs();
 	}
 
-	function initConstructor() {
-		var newType;
-		var createMethod = null;
-		var path;
-
-		for( f in classType.statics.get() )
-			if( f.name == "create" )
-				createMethod = f;
-
-		if( createMethod != null ) {
+	function initConstructor( f : Field ) {
+		if( f != null && f.name == "create" ) {
 			var classPath = makeTypePath(classType);
-			path = classPath.concat(["create"]);
-			newType = createMethod.type;
+			constructorPath = classPath.concat(["create"]);
 		} else {
-			path = switch( baseType ) {
+			constructorPath = switch( baseType ) {
 			case TPath(p):
 				var path = p.pack.copy();
 				path.push(p.name);
@@ -105,22 +106,17 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				path;
 			default: throw "assert";
 			}
-			if( baseClass.constructor == null )
-				error(baseClass.name+" requires a constructor", baseClass.pos);
-			newType = baseClass.constructor.get().type;
 		}
-		constructorPath = path;
 
-		switch( newType.follow() ) {
-		case TFun(args,_):
+		if( f == null ) return;
+
+		switch( f.kind ) {
+		case FFun(f):
+			var args = f.args.copy();
 			args.pop(); // parent
-			constructorArgs = [for( a in args ) {
-				type : a.t.toComplexType(),
-				name : a.name,
-				opt : a.opt,
-			}];
+			constructorArgs = args;
 		default:
-			error("Create method is not a function", classType.pos);
+			error("Create method is not a function", f.pos);
 		}
 	}
 
@@ -165,15 +161,15 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		parser = std.Type.createInstance(cl,[]);
 	}
 
-	function defineField( f : ClassField ) {
-		var pm = f.meta.extract(":p")[0];
-		var propType = f.type.toComplexType();
-		var t = f.type;
-		while( true )
-			switch( t ) {
-			case TType(_), TLazy(_): t = t.follow(true);
-			default: break;
-			}
+	function defineField( f : Field, pm : MetadataEntry ) {
+		var defExpr = null;
+		var t = switch( f.kind ) {
+		case FVar(t, def), FProp(_, _, t, def): defExpr = def; t;
+		default: return;
+		}
+		var tt = haxe.macro.Context.resolveType(t, f.pos).follow();
+		t = tt.toComplexType();
+
 		var prop = null;
 		var parserMode = PNone;
 
@@ -190,7 +186,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					error(parserType.toString()+" has no field "+fname, pm.params[0].pos);
 				prop = {
 					def : null,
-					expr : macro (parser.$fname : domkit.CssValue -> $propType),
+					expr : macro (parser.$fname : domkit.CssValue -> $t),
 					value : function(css:CssValue) : Dynamic {
 						return Reflect.callMethod(this.parser,meth,[css]);
 					}
@@ -199,31 +195,22 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			}
 
 		if( prop == null ) {
-			prop = parserFromType(t, f.pos, parserMode);
+			prop = parserFromType(tt, f.pos, parserMode);
 			if( prop == null ) error("Unsupported type "+t.toString()+", use custom parser", f.pos);
 		} else {
-			var pdef = parserFromType(t, f.pos, parserMode);
+			var pdef = parserFromType(tt, f.pos, parserMode);
 			if( pdef != null ) prop.def = pdef.def;
 		}
 
-		switch( f.expr() ) {
+		switch( defExpr ) {
 		case null:
-		case { expr : TConst(c), pos : pos }:
-			prop.def = { expr : EConst(switch( c ) {
-				case TString(s): CString(s);
-				case TInt(i): CInt(""+i);
-				case TFloat(f): CFloat(f);
-				case TNull: CIdent("null");
-				case TBool(b): CIdent(b?"true":"false");
-				default: error("Unsupported constant", pos);
-			}), pos : pos };
-		case { expr : TField(_,FEnum(en,ef)), pos : pos }:
-			prop.def = { expr : EConst(CIdent(ef.name)), pos : pos };
+		case { expr : EConst(c), pos : pos }:
+			prop.def = defExpr;
 		default:
 			error("Invalid default expr", f.pos);
 		}
 
-		var h = addHandler(fieldToProp(f.name), prop.value, prop.def, propType);
+		var h = addHandler(fieldToProp(f.name), prop.value, prop.def, t);
 		h.position = f.pos;
 		h.fieldName = f.name;
 		h.parserExpr = prop.expr;
@@ -330,8 +317,6 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	}
 
 	public function buildRuntimeComponent( componentsType ) {
-		getConstructorArgs();
-
 		var cname = runtimeName(name);
 		var parentExpr;
 		if( parent == null )
@@ -340,6 +325,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var parentName = runtimeName(parent.name);
 			parentExpr = macro @:privateAccess domkit.$parentName.inst;
 		}
+
 		var path;
 		var setters = new Map();
 		for( f in classType.statics.get() ) {
@@ -348,13 +334,15 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			if( StringTools.startsWith(f.name,"set_") )
 				setters.set(fieldToProp(f.name.substr(4)), true);
 		}
+
 		var classPath = makeTypePath(classType);
 		var newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, classType.pos);
-		if( constructorArgs.length == 0 )
+		var cargs = getConstructorArgs();
+		if( cargs.length == 0 )
 			newExpr = macro function(_,parent) return ($newExpr)(parent);
 		else {
 			var eargs = [];
-			for( i in 0...constructorArgs.length )
+			for( i in 0...cargs.length )
 				eargs.push(macro args[$v{i}]);
 			eargs.push(macro parent);
 			newExpr = macro function(args,parent) return ($newExpr)($a{eargs});

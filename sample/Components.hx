@@ -1,6 +1,6 @@
 
 @:uiComp("base")
-class BaseComponent {
+class BaseComponent implements domkit.Object {
 
 	@:p var name : String; // should be declared in BaseComponent to allow custom naming
 
