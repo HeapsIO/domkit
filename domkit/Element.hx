@@ -127,7 +127,15 @@ class Element<T> {
 	public static function create<BaseT,T:BaseT>( comp : String, attributes : haxe.DynamicAccess<String>, ?parent : Element<BaseT>, ?value : T, ?args : Array<Dynamic> ) {
 		var c = Component.get(comp);
 		if( c == null ) throw "Unknown component "+comp;
-		var e = new Element<BaseT>(value == null ? c.make(args, parent == null ? null : parent.obj) : value, cast c, parent);
+		var e;
+		if( value == null )
+			value = c.make(args, parent == null ? null : parent.obj);
+		if( c.hasDocument ) {
+			e = ((value:Dynamic).document : Document<BaseT>).root;
+			e.parent = parent;
+			if( parent != null ) parent.children.push(e);
+		} else
+			e = new Element<BaseT>(value, cast c, parent);
 		if( attributes != null ) e.initAttributes(attributes);
 		if( parent != null && value != null ) addElement(e, parent);
 		return e;

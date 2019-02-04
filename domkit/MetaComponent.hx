@@ -70,26 +70,28 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 		var fconstr = null;
 		for( f in fields ) {
-			for( m in f.meta )
-				if( m.name == ":p" ) {
-					defineField(f, m);
-					break;
-				}
+			if( f.meta != null )
+				for( m in f.meta )
+					if( m.name == ":p" ) {
+						defineField(f, m);
+						break;
+					}
 			if( f.name == "new" && fconstr == null )
 				fconstr = f;
-			if( f.name == "create" && f.access.indexOf(AStatic) < 0 )
+			if( f.name == "create" && f.access.indexOf(AStatic) >= 0 )
 				fconstr = f;
 		}
 		initConstructor(fconstr);
 	}
 
 	public function getConstructorArgs() {
-		if( constructorArgs != null )
-			return constructorArgs;
-		var p = Std.instance(parent, MetaComponent);
-		if( p == null )
-			return null;
-		return p.getConstructorArgs();
+		var p = this;
+		while( p != null ) {
+			if( p.constructorArgs != null )
+				return p.constructorArgs;
+			p = Std.instance(p.parent, MetaComponent);
+		}
+		return [];
 	}
 
 	function initConstructor( f : Field ) {
@@ -114,6 +116,12 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		case FFun(f):
 			var args = f.args.copy();
 			args.pop(); // parent
+			for( a in args ) {
+				if( a.type == null && a.value != null )
+					a.type = haxe.macro.Context.typeof(a.value).toComplexType();
+				if( a.type == null )
+					error("Missing explicit type for constructor argument "+a.name, f.expr.pos);
+			}
 			constructorArgs = args;
 		default:
 			error("Create method is not a function", f.pos);
@@ -167,6 +175,19 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		case FVar(t, def), FProp(_, _, t, def): defExpr = def; t;
 		default: return;
 		}
+		if( t == null && defExpr != null )
+			switch( defExpr.expr ) {
+			case EConst(c):
+				switch( c ) {
+				case CInt(_): t = macro : Int;
+				case CFloat(_): t = macro : Float;
+				case CString(_): t = macro : String;
+				default:
+				}
+			default:
+			}
+		if( t == null )
+			error("Type required", f.pos);
 		var tt = haxe.macro.Context.resolveType(t, f.pos).follow();
 		t = tt.toComplexType();
 
@@ -316,7 +337,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return classType.module;
 	}
 
-	public function buildRuntimeComponent( componentsType ) {
+	public function buildRuntimeComponent( componentsType, fields : Array<Field> ) {
 		var cname = runtimeName(name);
 		var parentExpr;
 		if( parent == null )
@@ -328,8 +349,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 		var path;
 		var setters = new Map();
-		for( f in classType.statics.get() ) {
-			if( !f.kind.match(FMethod(_)) )
+		for( f in fields ) {
+			if( f.access.indexOf(AStatic) < 0 || !f.kind.match(FFun(_)) )
 				continue;
 			if( StringTools.startsWith(f.name,"set_") )
 				setters.set(fieldToProp(f.name.substr(4)), true);
@@ -371,7 +392,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		var fields = (macro class {
 			var parser : $parserType;
 			function new() {
-				super($v{this.name},@:privateAccess $newExpr,$parentExpr);
+				super($v{this.name},@:privateAccess $newExpr,$parentExpr,$v{hasDocument});
 				parser = new $parserClass();
 				$b{handlers};
 			}

@@ -103,7 +103,7 @@ class Macros {
 					var eset = null;
 					while( mc != null ) {
 						eset = mc.setExprs.get(p.name);
-						if( eset != null ) break;
+						if( eset != null || mc.parent == null ) break;
 						mc = cast(mc.parent, MetaComponent);
 					}
 					aexprs.push(macro var attrib = $e);
@@ -203,6 +203,7 @@ class Macros {
 	public static function buildObject() {
 		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
+		var hasDocument = false;
 		for( f in fields )
 			if( f.name == "SRC" ) {
 				switch( f.kind ) {
@@ -223,6 +224,7 @@ class Macros {
 							}
 							csup = cl.superClass;
 						}
+						hasDocument = true;
 
 						if( isFirst )
 							fields = fields.concat((macro class {
@@ -265,8 +267,9 @@ class Macros {
 		if( isComp ) {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
+				m.hasDocument = hasDocument;
 				if( componentsType == null ) componentsType = m.baseType;
-				Context.defineType(m.buildRuntimeComponent(componentsType));
+				Context.defineType(m.buildRuntimeComponent(componentsType,fields));
 				var t = m.getRuntimeComponentType();
 				fields.push((macro class {
 					static var ref : $t = null;
