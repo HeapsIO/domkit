@@ -115,11 +115,9 @@ class Element<T> {
 	}
 
 	public static dynamic function addElement( e : Element<Dynamic>, to : Element<Dynamic> ) {
-		throw "Custom Element.addElement not implemented";
 	}
 
 	public static dynamic function removeElement( e : Element<Dynamic> ) {
-		throw "Custom Element.removeElement not implemented";
 	}
 
 	static var pclass = Property.get("class");
