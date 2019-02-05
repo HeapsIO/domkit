@@ -12,9 +12,9 @@ class Element<T> {
 	public var id : String;
 	public var obj : T;
 	public var component : Component<T,Dynamic>;
-	public var classes : Array<String>;
 	public var parent : Element<T>;
 	public var children : Array<Element<T>> = [];
+	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
 	var needStyleRefresh : Bool = true;
@@ -32,6 +32,41 @@ class Element<T> {
 			parent = null;
 		}
 		removeElement(this);
+	}
+
+	public function addClass( c : String ) {
+		if( classes == null )
+			classes = [];
+		if( classes.indexOf(c) < 0 ) {
+			classes.push(c);
+			needStyleRefresh = true;
+		}
+	}
+
+	public function removeClass( c : String ) {
+		if( classes.remove(c) ) {
+			needStyleRefresh = true;
+			if( classes.length == 0 ) classes = null;
+		}
+	}
+
+	public function toggleClass( c : String ) {
+		if( classes == null )
+			classes = [c];
+		else if( classes.remove(c) ) {
+			if( classes.length == 0 ) classes = null;
+		} else
+			classes.push(c);
+		needStyleRefresh = true;
+	}
+
+	public function get( obj : T ) {
+		if( this.obj == obj ) return this;
+		for( c in children ) {
+			var v = c.get(obj);
+			if( v != null ) return v;
+		}
+		return null;
 	}
 
 	function initStyle( p : String, value : Dynamic ) {

@@ -15,6 +15,14 @@ class Document<T> {
 		@:privateAccess s.applyStyle(root,true);
 	}
 
+	public inline function get( e : T ) {
+		return root.get(e);
+	}
+
+	public function sync() {
+		if( style != null ) @:privateAccess style.applyStyle(root,false);
+	}
+
 	public function remove() {
 		root.remove();
 	}

@@ -26,10 +26,16 @@ class Test {
 		trace( cast(o.document.root.children[0].obj,Components.TextComponent).text ); // "Hello World!"
 
 		var css = new domkit.CssStyle();
-		css.add(new domkit.CssParser().parseSheet(".foo custom { padding-left : 50; }"));
+		css.add(new domkit.CssParser().parseSheet(".foo custom { padding-left : 50; } .foo custom.over { padding-left: 60; }"));
 		o.setStyle(css);
 
 		trace(o.sub.paddingLeft); // 50
+
+		var elt = o.document.get(o.sub);
+		elt.addClass("over");
+		o.document.sync();
+		trace(o.sub.paddingLeft); // 60
+
 	}
 
 }
