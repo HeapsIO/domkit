@@ -113,12 +113,13 @@ class Macros {
 			}
 			var attributes = { expr : EObjectDecl([for( m in avalues ) { field : m.attr, expr : { expr : EConst(CString(m.value)), pos : pos } }]), pos : pos };
 			var ct = comp.baseType;
-			var exprs : Array<Expr> = if( isRoot )
+			var exprs : Array<Expr> = if( isRoot ) {
+				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
 				[
-					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,(null:domkit.Element<$componentsType>),(this : $ct))),
+					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,(null:domkit.Element<$componentsType>),$baseCheck)),
 					(macro document = new domkit.Document(tmp)),
 				];
-			else
+			} else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
 			for( a in m.attributes )
 				if( a.name == "name" ) {
