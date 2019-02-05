@@ -121,8 +121,9 @@ class Macros {
 				];
 			} else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
+			var declaredIds = new Map<String,Bool>();
 			for( a in m.attributes )
-				if( a.name == "name" ) {
+				if( a.name == "id" ) {
 					var field = switch( a.value ) {
 					case RawValue(v): v;
 					default: continue;
@@ -131,12 +132,15 @@ class Macros {
 					if( isArray ) {
 						field = field.substr(0,field.length-2);
 						exprs.push(macro this.$field.push(cast tmp.obj));
-						fields.push({
-							name : field,
-							access : [APublic],
-							pos : makePos(pos, a.pmin, a.pmax),
-							kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), macro []),
-						});
+						if( !declaredIds.exists(field) ) {
+							declaredIds.set(field, true);
+							fields.push({
+								name : field,
+								access : [APublic],
+								pos : makePos(pos, a.pmin, a.pmax),
+								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), macro []),
+							});
+						}
 					} else {
 						exprs.push(macro this.$field = cast tmp.obj);
 						fields.push({

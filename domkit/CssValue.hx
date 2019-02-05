@@ -37,7 +37,7 @@ class ValueParser {
 		}
 	}
 
-	public function parseName( v : CssValue ) {
+	public function parseId( v : CssValue ) {
 		return switch( v ) {
 		case VIdent(n): n;
 		case VArray(VIdent(n), null): n;

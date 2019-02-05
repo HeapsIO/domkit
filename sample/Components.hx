@@ -2,8 +2,6 @@
 @:uiComp("base")
 class BaseComponent implements domkit.Object {
 
-	@:p var name : String; // should be declared in BaseComponent to allow custom naming
-
 	public function new(?parent:BaseComponent) {
 	}
 }
@@ -15,6 +13,13 @@ enum Color {
 }
 
 typedef Padding = { left : Int, right : Int, top : Int, bottom : Int };
+
+@:uiComp("text")
+class TextComponent extends BaseComponent {
+
+	@:p(string) var text : String;
+
+}
 
 @:uiComp("mydiv")
 class MydivComponent extends BaseComponent {

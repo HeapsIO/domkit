@@ -56,7 +56,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		initParser(c);
 		if( metaParent == null ) {
 			addHandler("class", parser.parseArray.bind(parser.parseIdent), null, macro : String);
-			addHandler("id", parser.parseIdent, null, macro : String);
+			addHandler("id", parser.parseId, null, macro : String);
 		}
 
 		var baseT = t;
