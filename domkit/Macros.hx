@@ -14,6 +14,10 @@ class Macros {
 	@:persistent static var componentsType : ComplexType;
 	static var RESOLVED_COMPONENTS = new Map();
 
+	public static dynamic function customTextParser( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : haxe.macro.Expr {
+		return null;
+	}
+
 	public static function registerComponentsPath( path : String ) {
 		if( componentsSearchPath.indexOf(path) < 0 )
 			componentsSearchPath.push(path);
@@ -173,6 +177,18 @@ class Macros {
 				replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
 			}
 			return expr;
+		case CustomText(id):
+			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
+				case RawValue(v): { expr : EConst(CString(v)), pos : makePos(pos, a.pmin, a.pmax) };
+				case Code(e): e;
+			}];
+			var expr = customTextParser(id, args, makePos(pos, m.pmin, m.pmax));
+			if( expr == null ) error("Unsupported custom text", m.pmin, m.pmax);
+			var c = loadComponent("text",m.pmin, m.pmax);
+			return macro {
+				var tmp = domkit.Element.create("text",null,tmp);
+				tmp.setAttribute("text",VString($expr));
+			};
 		}
 	}
 

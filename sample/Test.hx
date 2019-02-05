@@ -2,7 +2,7 @@ class Obj extends Components.MydivComponent implements domkit.Object {
 
 	static var SRC =
 	<mydiv class="foo" padding-left="$value" color="blue">
-		@exampleText
+		@exampleText("!")
 		<custom(55) id="sub" custom-color="#ff0 0.5"/>
 	</mydiv>
 	;
@@ -16,11 +16,14 @@ class Obj extends Components.MydivComponent implements domkit.Object {
 
 class Test {
 
+	public static var exampleText = "Hello World";
+
 	static function main() {
 		var o = new Obj(55);
 		trace(o.color); // Blue
 		trace(o.paddingLeft); // 55
 		trace(o.sub.paddingLeft); // 0
+		trace( cast(o.document.root.children[0].obj,Components.TextComponent).text ); // "Hello World!"
 
 		var css = new domkit.CssStyle();
 		css.add(new domkit.CssParser().parseSheet(".foo custom { padding-left : 50; }"));

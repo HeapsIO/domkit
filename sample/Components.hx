@@ -17,7 +17,7 @@ typedef Padding = { left : Int, right : Int, top : Int, bottom : Int };
 @:uiComp("text")
 class TextComponent extends BaseComponent {
 
-	@:p(string) var text : String;
+	@:p(string) public var text : String;
 
 }
 

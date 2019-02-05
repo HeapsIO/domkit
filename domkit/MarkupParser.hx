@@ -26,18 +26,22 @@ enum abstract MToken(Int) {
 	var DOCTYPE;
 	var CDATA;
 	var ESCAPE;
-	var NODE_ARGS;
+	var ARGS;
+	var TEXT_ID;
 }
+
+typedef CodeExpr = #if macro haxe.macro.Expr #else String #end;
 
 enum MarkupKind {
 	Node( name : String );
 	Text( text : String );
 	CodeBlock( v : String );
+	CustomText( id : String );
 }
 
 enum AttributeValue {
 	RawValue( v : String );
-	Code( v : #if macro haxe.macro.Expr #else String #end );
+	Code( v : CodeExpr );
 }
 
 typedef Markup = {
@@ -94,15 +98,15 @@ class MarkupParser {
 		else
 			v = v.substr(1);
 		start += val.indexOf(v);
-		return parseCode(v, start);
+		return Code(parseCode(v, start));
 	}
 
 	function parseCode( v : String, start : Int ) {
 		#if macro
 		var e = try haxe.macro.Context.parseInlineString(v,haxe.macro.Context.makePosition({ min : filePos + start, max : filePos + start + v.length, file : fileName })) catch( e : Dynamic ) error(""+e, start, start + v.length);
-		return Code(e);
+		return e;
 		#else
-		return Code(v);
+		return v;
 		#end
 	}
 
@@ -117,6 +121,7 @@ class MarkupParser {
 		var nbraces = 0;
 		var nparents = 0;
 		var attr_start = 0;
+		var prevObj = null;
 		var c = str.fastCodeAt(p);
 		var buf = new StringBuf();
 		// need extra state because next is in use
@@ -144,15 +149,19 @@ class MarkupParser {
 		inline function addNodeArg(last) {
 			var base = str.substr(start, p - start);
 			var arg = StringTools.trim(base);
-			if( arg == "" && (!last || obj.arguments.length > 0) )
-				error("Empty argument", start, p + 1);
+			if( arg == "" ) {
+				if( !last || obj.arguments.length > 0 )
+					error("Empty argument", start, p + 1);
+				start = p + 1;
+				return;
+			}
 			start += base.indexOf(arg);
 			if( arg.charCodeAt(0) == "'".code || arg.charCodeAt(0) == '"'.code ) {
 				if( arg.charCodeAt(arg.length-1) != arg.charCodeAt(0) )
 					error("Unclosed string", start, start + arg.length);
 				obj.arguments.push({ value : RawValue(arg.substr(1,arg.length - 2)), pmin : filePos + start + 1, pmax : filePos + start + arg.length - 1 });
 			} else {
-				obj.arguments.push({ value : parseCode(arg,start), pmin : filePos + start, pmax : filePos + start + arg.length });
+				obj.arguments.push({ value : Code(parseCode(arg,start)), pmin : filePos + start, pmax : filePos + start + arg.length });
 			}
 			start = p + 1;
 		}
@@ -182,8 +191,8 @@ class MarkupParser {
 							continue;
 					}
 				case PCDATA:
-					if (c == '<'.code || c == '$'.code )
-					{
+					switch( c ) {
+					case '<'.code, '$'.code:
 						buf.addSub(str, start, p - start);
 						addText();
 						buf = new StringBuf();
@@ -194,11 +203,41 @@ class MarkupParser {
 							state = IGNORE_SPACES;
 							next = BEGIN_NODE;
 						}
-					} else if (c == '&'.code) {
+					case '&'.code:
 						buf.addSub(str, start, p - start);
 						state = ESCAPE;
 						escapeNext = PCDATA;
 						start = p + 1;
+					case '@'.code:
+						buf.addSub(str, start, p - start);
+						if( StringTools.trim(buf.toString()) == "" ) {
+							state = TEXT_ID;
+							start = p + 1;
+						}
+					}
+				case TEXT_ID:
+					if( !isValidChar(c) ) {
+						var id = str.substr(start, p - start);
+						var m : Markup = {
+							kind : CustomText(id),
+							pmin : start,
+							pmax : p,
+						};
+						addChild(m);
+						if( c == '('.code ) {
+							state = ARGS;
+							prevObj = obj;
+							obj = m;
+							obj.arguments = [];
+							start = p + 1;
+							nparents = 1;
+							nbrackets = nbraces = 0;
+						} else {
+							start = p;
+							state = PCDATA;
+							buf = new StringBuf();
+							continue;
+						}
 					}
 				case CDATA:
 					if (c == ']'.code && str.fastCodeAt(p + 1) == ']'.code && str.fastCodeAt(p + 2) == '>'.code)
@@ -315,7 +354,8 @@ class MarkupParser {
 						case '>'.code:
 							state = CHILDS;
 						case '('.code:
-							state = NODE_ARGS;
+							state = ARGS;
+							next = BODY;
 							start = p + 1;
 							nparents = 1;
 							nbrackets = nbraces = 0;
@@ -389,19 +429,23 @@ class MarkupParser {
 					case '}'.code:
 						nbraces--;
 						if( nbraces == 0 ) {
-							obj.attributes.push({ name : aname, value : parseCode(str.substr(start, p-start),start), pmin : attr_start + filePos, vmin : start + filePos, pmax : p + filePos });
+							obj.attributes.push({ name : aname, value : Code(parseCode(str.substr(start, p-start),start)), pmin : attr_start + filePos, vmin : start + filePos, pmax : p + filePos });
 							state = IGNORE_SPACES;
 							next = BODY;
 						}
 					}
-				case NODE_ARGS:
+				case ARGS:
 					switch( c ) {
 					case ")".code:
 						nparents--;
 						if( nparents == 0 ) {
 							addNodeArg(true);
-							state = IGNORE_SPACES;
-							next = BODY;
+							state = next;
+							if( state == BODY ) {
+								state = IGNORE_SPACES;
+								next = BODY;
+							} else
+								obj = prevObj;
 						}
 					case '('.code:
 						nparents++;
