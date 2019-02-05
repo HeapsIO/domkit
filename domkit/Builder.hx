@@ -24,17 +24,34 @@ class Builder<T> {
 		return new Document(root);
 	}
 
-	function makeElement<T>( name : String, parent : Element<T> ) : Element<T> {
+	function makeElement<T>( name : String, args : Array<Dynamic>, parent : Element<T> ) : Element<T> {
 		var comp = Component.get(name);
 		if( comp == null ) return null;
-		return new Element(comp.make(parent == null ? null : parent.obj), comp, parent);
+		return new Element(comp.make(args, parent == null ? null : parent.obj), comp, parent);
+	}
+
+	function evalArg( v : domkit.MarkupParser.AttributeValue, min : Int, max : Int ) : Dynamic {
+		return switch( v ) {
+		case Code(code):
+			if( !~/^[A-Za-z0-9_\.]+$/.match(code) ) {
+				warn("Unsupported complex code attribute", min, max);
+				return null;
+			}
+			var path = code.split(".");
+			var value : Dynamic = data;
+			for( v in path )
+				value = Reflect.field(value,v);
+			return value;
+		case RawValue(v):
+			throw "TODO";
+		}
 	}
 
 	function buildRec( x : MarkupParser.Markup, parent : Element<T> ) : Element<T> {
 		var inst : Element<T> = null;
 		switch( x.kind ) {
 		case Text(txt):
-			inst = makeElement("text",parent);
+			inst = makeElement("text",[],parent);
 			if( inst != null ) inst.setAttribute("text", VString(txt));
 		case Node(null):
 			var c = x.children[0];
@@ -45,44 +62,37 @@ class Builder<T> {
 			return buildRec(c, parent);
 		case Node(name):
 			path.push(name);
-			inst = makeElement(name, parent);
+			var args = [for( v in x.arguments ) evalArg(v.value, v.pmin, v.pmax)];
+			inst = makeElement(name, args, parent);
 			if( inst == null )
 				warn("Unknown component "+name, x.pmin, x.pmin + name.length);
 			var css = new CssParser();
 			for( a in x.attributes ) {
 				if( inst == null ) continue;
-				var pval : Dynamic;
 				switch( a.value ) {
 				case RawValue(v):
-					pval = try css.parseValue(v) catch( e : Error ) {
+					var css = try css.parseValue(v) catch( e : Error ) {
 						path.push(a.name);
 						warn("Invalid attribute value '"+v+"' ("+e.message+")", e.pmin + a.vmin, a.pmax);
 						path.pop();
 						continue;
 					}
-				case Code(code):
-					if( !~/^[A-Za-z0-9_\.]+$/.match(code) ) {
-						warn("Unsupported complex code attribute", a.vmin, a.pmax);
-						continue;
+					switch( inst.setAttribute(a.name.toLowerCase(),css) ) {
+					case Ok:
+					case Unknown:
+						path.push(a.name);
+						warn("Unknown attribute", a.pmin, a.pmin+a.name.length);
+						path.pop();
+					case Unsupported:
+						warn("Unsupported attribute "+a+" in", a.pmin, a.pmin+a.name.length);
+					case InvalidValue(msg):
+						path.push(a.name);
+						warn("Invalid attribute value"+(msg == null ? "" : " ("+msg+") for"), a.vmin, a.pmax);
+						path.pop();
 					}
-					var path = code.split(".");
-					var value : Dynamic = data;
-					for( v in path )
-						value = Reflect.field(value,v);
-					pval = value;
-				}
-				switch( inst.setAttribute(a.name.toLowerCase(),pval) ) {
-				case Ok:
-				case Unknown:
-					path.push(a.name);
-					warn("Unknown attribute", a.pmin, a.pmin+a.name.length);
-					path.pop();
-				case Unsupported:
-					warn("Unsupported attribute "+a+" in", a.pmin, a.pmin+a.name.length);
-				case InvalidValue(msg):
-					path.push(a.name);
-					warn("Invalid attribute value"+(msg == null ? "" : " ("+msg+") for"), a.vmin, a.pmax);
-					path.pop();
+				case Code(_):
+					var value = evalArg(a.value, a.vmin, a.pmax);
+					// TODO
 				}
 			}
 			for( e in x.children )
