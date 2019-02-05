@@ -318,6 +318,7 @@ class MarkupParser {
 							state = NODE_ARGS;
 							start = p + 1;
 							nparents = 1;
+							nbrackets = nbraces = 0;
 						default:
 							state = ATTRIB_NAME;
 							start = p;
@@ -402,7 +403,17 @@ class MarkupParser {
 							state = IGNORE_SPACES;
 							next = BODY;
 						}
-					case ','.code if( nparents == 1 ):
+					case '('.code:
+						nparents++;
+					case '{'.code:
+						nbraces++;
+					case '['.code:
+						nbrackets++;
+					case '}'.code:
+						nbraces--;
+					case ']'.code:
+						nbrackets--;
+					case ','.code if( nparents == 1 && nbrackets == 0 && nbraces == 0 ):
 						addNodeArg(false);
 					}
 				case CHILDS:
