@@ -5,7 +5,6 @@ class Obj extends Components.MydivComponent implements domkit.Object {
 		@exampleText("!")
 		<custom(55) id="sub" custom-color="#ff0 0.5" active/>
 	</mydiv>
-	;
 
 	public function new(value,?parent) {
 		super(parent);
