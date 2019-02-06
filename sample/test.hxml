@@ -2,3 +2,4 @@
 -main Test
 -hl test.hl
 --macro InitComponents.init()
+-dce full

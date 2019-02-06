@@ -342,9 +342,17 @@ class MarkupParser {
 							children : [],
 						};
 						addChild(obj);
-						state = IGNORE_SPACES;
-						next = BODY;
-						continue;
+						if( c == '('.code ) {
+							state = ARGS;
+							next = BODY;
+							start = p + 1;
+							nparents = 1;
+							nbrackets = nbraces = 0;
+						} else {
+							state = IGNORE_SPACES;
+							next = BODY;
+							continue;
+						}
 					}
 				case BODY:
 					switch(c)
@@ -353,12 +361,6 @@ class MarkupParser {
 							state = WAIT_END;
 						case '>'.code:
 							state = CHILDS;
-						case '('.code:
-							state = ARGS;
-							next = BODY;
-							start = p + 1;
-							nparents = 1;
-							nbrackets = nbraces = 0;
 						default:
 							state = ATTRIB_NAME;
 							start = p;
@@ -381,11 +383,15 @@ class MarkupParser {
 						continue;
 					}
 				case EQUALS:
-					switch(c)
-					{
+					switch(c) {
 						case '='.code:
 							state = IGNORE_SPACES;
 							next = ATTVAL_BEGIN;
+						case ' '.code, '\n'.code, '\t'.code, '\r'.code, '>'.code, '/'.code:
+							obj.attributes.push({ name : aname, value : RawValue("true"), pmin : attr_start + filePos, vmin : attr_start + filePos, pmax : p + filePos });
+							state = IGNORE_SPACES;
+							next = BODY;
+							continue;
 						default:
 							error("Expected =", p);
 					}
