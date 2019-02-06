@@ -393,6 +393,11 @@ class MarkupParser {
 							next = BODY;
 							continue;
 						default:
+							if( isValidChar(c) ) {
+								obj.attributes.push({ name : aname, value : RawValue("true"), pmin : attr_start + filePos, vmin : attr_start + filePos, pmax : p + filePos });
+								state = BODY;
+								continue;
+							}
 							error("Expected =", p);
 					}
 				case ATTVAL_BEGIN:
