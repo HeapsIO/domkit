@@ -396,7 +396,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				parser = new $parserClass();
 				$b{handlers};
 			}
-			static var inst = new domkit.$cname();
+			@:keep static var inst = new domkit.$cname();
 		}).fields;
 
 		var td : TypeDefinition = {
