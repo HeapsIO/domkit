@@ -6,6 +6,7 @@ class InitComponents {
 		domkit.Macros.registerComponentsPath("Components.$Component");
 		domkit.Macros.registerComponentsPath("$Component");
 		domkit.Macros.customTextParser = customTextParser;
+		domkit.Macros.checkCSS("test.css");
 	}
 
 	static function customTextParser( id : String, args : Array<haxe.macro.Expr>, pos : haxe.macro.Expr.Position ) : haxe.macro.Expr {

@@ -27,7 +27,7 @@ enum Token {
 
 class CssClass {
 	public var parent : Null<CssClass>;
-	public var node : Null<Component<Dynamic,Dynamic>>;
+	public var component : Null<Component<Dynamic,Dynamic>>;
 	public var className : Null<String>;
 	public var pseudoClass : Null<String>;
 	public var id : Null<String>;
@@ -35,16 +35,18 @@ class CssClass {
 	}
 }
 
-typedef CssSheet = Array<{ classes : Array<CssClass>, style : Array<{ p : Property, value : CssValue }> }>;
+typedef CssSheet = Array<{ classes : Array<CssClass>, style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int }> }>;
 
 class CssParser {
 
 	var css : String;
 	var pos : Int;
+	var tokenStart : Int;
+	var valueStart : Int;
 
 	var spacesTokens : Bool;
 	var tokens : Array<Token>;
-	public var warnings : Array<{ start : Int, end : Int, msg : String }>;
+	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 
 	public function new() {
 	}
@@ -145,15 +147,15 @@ class CssParser {
 		while( true ) {
 			if( isToken(eof) )
 				break;
-			var start = pos;
 			var name = readIdent();
+			var start = tokenStart;
 			expect(TDblDot);
 			var value = readValue();
 			var p = Property.get(name, false);
 			if( p == null )
-				warnings.push({ start : start, end : pos, msg : "Unknown property "+name });
+				warnings.push({ pmin : start, pmax : pos, msg : "Unknown property "+name });
 			else
-				style.push({ p : p, value : value });
+				style.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos });
 			if( isToken(eof) )
 				break;
 			expect(TSemicolon);
@@ -211,15 +213,20 @@ class CssParser {
 		var def = false;
 		var last = null;
 		while( true ) {
+			var p = pos;
 			var t = readToken();
 			if( last == null )
 				switch( t ) {
 				case TStar: def = true;
 				case TDot, TSharp, TDblDot: last = t;
 				case TIdent(i):
+					#if macro
+					var comp = @:privateAccess Macros.loadComponent(i,p,this.pos);
+					#else
 					var comp = Component.get(i);
+					#end
 					if( comp == null ) error("Unknown component "+i);
-					c.node = comp;
+					c.component = comp;
 					def = true;
 				case TSpaces:
 					return def ? readClass(c) : null;
@@ -258,9 +265,12 @@ class CssParser {
 
 	function readValue(?opt) : CssValue {
 		var t = readToken();
+		var start = tokenStart;
 		var v = switch( t ) {
 		case TSharp:
 			var h = readHex();
+			if( h.length == 0 )
+				error("Invalid hex value");
 			VHex(h,Std.parseInt("0x"+h));
 		case TIdent(i):
 			var start = pos;
@@ -286,6 +296,7 @@ class CssParser {
 			null;
 		};
 		if( v != null ) v = readValueNext(v);
+		valueStart = start;
 		return v;
 	}
 
@@ -459,6 +470,7 @@ class CssParser {
 		if( t != null )
 			return t;
 		while( true ) {
+			tokenStart = pos;
 			var c = next();
 			if( StringTools.isEof(c) )
 				return TEof;
@@ -469,7 +481,6 @@ class CssParser {
 					pos--;
 					return TSpaces;
 				}
-
 				continue;
 			}
 			if( isNum(c) || c == '-'.code ) {
@@ -555,6 +566,69 @@ class CssParser {
 			error("Invalid char " + css.charAt(pos));
 		}
 		return null;
+	}
+
+	public function check( rules : CssParser.CssSheet, components : Array<Component<Dynamic,Dynamic>> ) {
+		inline function error(msg,min,max) {
+			warnings.push({ msg : msg, pmin : min, pmax : max });
+		}
+		for( r in rules ) {
+			var comp = r.classes[0].component;
+			var first = true;
+			for( c in r.classes )
+				if( c.component != comp ) {
+					comp = null;
+					break;
+				}
+			for( s in r.style ) {
+				var handlers = [];
+				if( comp != null ) {
+					var h = comp.getHandler(s.p);
+					if( h == null ) {
+						error(comp.name+" does not handle property "+s.p.name, s.pmin, s.pmin + s.p.name.length);
+						continue;
+					}
+					var cur = comp;
+					while( cur.parent != null ) {
+						var h2 = cur.parent.getHandler(s.p);
+						if( h == h2 )
+							cur = cur.parent;
+						else
+							break;
+					}
+					handlers.push({ c : cur, h : h });
+				} else {
+					for( c in components ) {
+						var h = c.getHandler(s.p);
+						if( h == null ) continue;
+						for( h2 in handlers )
+							if( h2.h == h ) {
+								h = null;
+								break;
+							}
+						if( h == null ) continue;
+						handlers.push({ c : c, h : h });
+					}
+					if( handlers.length == 0 ) {
+						error("No component handles property "+s.p.name, s.pmin, s.pmin + s.p.name.length);
+						continue;
+					}
+				}
+				var ok = false, msg = null;
+				for( h in handlers ) {
+					try {
+						h.h.parser(s.value);
+						ok = true;
+						break;
+					} catch( e : Property.InvalidProperty ) {
+						if( e.message != null && msg == null )
+							msg = e.message;
+					}
+				}
+				if( ok ) continue;
+				error("Invalid "+[for( h in handlers ) h.c.name].join("|")+"."+s.p.name+" value '"+valueStr(s.value)+"'"+(msg == null ? "" : '($msg)'), s.vmin, s.pmax);
+			}
+		}
 	}
 
 }

@@ -1,0 +1,7 @@
+.foo custom {
+	padding-left : 50;
+}
+
+.foo custom.over {
+	padding-left: 60;
+}

@@ -125,7 +125,7 @@ class CssStyle {
 				var c = cl;
 				while( c != null ) {
 					if( c.id != null ) nids++;
-					if( c.node != null ) nnodes++;
+					if( c.component != null ) nnodes++;
 					if( c.pseudoClass != null ) nothers++;
 					if( c.className != null ) nothers++;
 					c = c.parent;
@@ -168,7 +168,7 @@ class CssStyle {
 			if( !found )
 				return false;
 		}
-		if( c.node != null && c.node != e.component )
+		if( c.component != null && c.component != e.component )
 			return false;
 		if( c.id != null && c.id != e.id )
 			return false;

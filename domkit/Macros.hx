@@ -23,6 +23,34 @@ class Macros {
 			componentsSearchPath.push(path);
 	}
 
+	public static function checkCSS( file : String ) {
+		if( Context.defined("display") ) return;
+		file = Context.resolvePath(file);
+		var content = sys.io.File.getContent(file);
+		inline function error(msg, pmin,pmax) {
+			Context.error(msg, Context.makePosition({ file : file, min : pmin, max : pmax }));
+		}
+		try {
+			var parser = new CssParser();
+			var rules = parser.parseSheet(content);
+			var components : Array<Component<Dynamic,Dynamic>> = [for( c in COMPONENTS ) c];
+			inline function height(c:Component<Dynamic,Dynamic>) {
+				var h = 0;
+				do {
+					c = c.parent;
+					h++;
+				} while( c != null );
+				return h;
+			}
+			components.sort(function(c1,c2) return height(c1) - height(c2));
+			parser.check(rules, components);
+			for( w in parser.warnings )
+				error(w.msg, w.pmin, w.pmax);
+		} catch( e : Error ) {
+			error(e.message, e.pmin, e.pmax);
+		}
+	}
+
 	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
 		var c = RESOLVED_COMPONENTS.get(name);
 		if( c != null ) {

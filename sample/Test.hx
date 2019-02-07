@@ -25,7 +25,7 @@ class Test {
 		trace( cast(o.document.root.children[0].obj,Components.TextComponent).text ); // "Hello World!"
 
 		var css = new domkit.CssStyle();
-		css.add(new domkit.CssParser().parseSheet(".foo custom { padding-left : 50; } .foo custom.over { padding-left: 60; }"));
+		css.add(new domkit.CssParser().parseSheet(sys.io.File.getContent("test.css")));
 		o.setStyle(css);
 
 		trace(o.sub.paddingLeft); // 50
