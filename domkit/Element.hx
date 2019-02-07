@@ -163,7 +163,7 @@ class Element<T> {
 		var e;
 		if( value == null )
 			value = c.make(args, parent == null ? null : parent.obj);
-		if( c.hasDocument ) {
+		if( c.hasDocument && parent != null ) {
 			e = ((value:Dynamic).document : Document<BaseT>).root;
 			e.parent = parent;
 			if( parent != null ) parent.children.push(e);

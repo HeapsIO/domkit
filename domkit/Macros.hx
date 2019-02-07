@@ -54,7 +54,7 @@ class Macros {
 	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
 		var c = RESOLVED_COMPONENTS.get(name);
 		if( c != null ) {
-			Context.getType(c.path);
+			if( c.path != null ) Context.getType(c.path);
 			return c.c;
 		}
 		var lastError = null;
@@ -249,74 +249,72 @@ class Macros {
 		return false;
 	}
 
+	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field> ) {
+		var p = new MarkupParser();
+		var pinf = Context.getPosInfos(pos);
+		var root = p.parse(str,pinf.file,pinf.min).children[0];
+
+		var initExpr = buildComponentsInit(root, fields, pos, true);
+		var csup = cl.superClass;
+		var isFirst = true;
+		while( csup != null ) {
+			var cl = csup.t.get();
+			if( cl.meta.has(":hasDomKitSrc") ) {
+				isFirst = false;
+				break;
+			}
+			csup = cl.superClass;
+		}
+
+		if( isFirst )
+			for( f in (macro class {
+				public var document : domkit.Document<$componentsType>;
+				public function setStyle( style : domkit.CssStyle ) {
+					document.setStyle(style);
+				}
+			}).fields )
+				fields.push(f);
+
+		var found = false;
+		for( f in fields )
+			if( f.name == "new" ) {
+				switch( f.kind ) {
+				case FFun(f):
+					function replace( e : Expr ) {
+						switch( e.expr ) {
+						case ECall({ expr : EConst(CIdent("initComponent")) },[]): e.expr = initExpr.expr; found = true;
+						default: haxe.macro.ExprTools.iter(e, replace);
+						}
+					}
+					replace(f.expr);
+					if( !found ) Context.error("Constructor missing initComponent() call", f.expr.pos);
+					break;
+				default:
+				}
+			}
+		if( !found )
+			Context.error("Missing constructor", Context.currentPos());
+	}
+
 	public static function buildObject() {
 		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
-		var hasDocument = false;
+		var hasDocument = null;
 		for( f in fields )
 			if( f.name == "SRC" ) {
 				switch( f.kind ) {
 				case FVar(_,{ expr : EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }), pos : pos }):
-					try {
-						var p = new MarkupParser();
-						var pinf = Context.getPosInfos(pos);
-						var root = p.parse(str,pinf.file,pinf.min).children[0];
-
-						var initExpr = buildComponentsInit(root, fields, pos, true);
-						var csup = cl.superClass;
-						var isFirst = true;
-						while( csup != null ) {
-							var cl = csup.t.get();
-							if( cl.meta.has(":hasDomKitSrc") ) {
-								isFirst = false;
-								break;
-							}
-							csup = cl.superClass;
-						}
-						hasDocument = true;
-
-						if( isFirst )
-							fields = fields.concat((macro class {
-								public var document : domkit.Document<$componentsType>;
-								public function setStyle( style : domkit.CssStyle ) {
-									document.setStyle(style);
-								}
-							}).fields);
-
-						var found = false;
-						for( f in fields )
-							if( f.name == "new" ) {
-								switch( f.kind ) {
-								case FFun(f):
-									function replace( e : Expr ) {
-										switch( e.expr ) {
-										case ECall({ expr : EConst(CIdent("initComponent")) },[]): e.expr = initExpr.expr; found = true;
-										default: haxe.macro.ExprTools.iter(e, replace);
-										}
-									}
-									replace(f.expr);
-									if( !found ) Context.error("Constructor missing initComponent() call", f.expr.pos);
-									break;
-								default:
-								}
-							}
-						if( !found )
-							Context.error("Missing constructor", Context.currentPos());
-
-					} catch( e : Error ) {
-						Context.error(e.message, makePos(pos,e.pmin,e.pmax));
-					}
-					cl.meta.add(":hasDomkitSrc", [], cl.pos);
-					fields.remove(f);
+					hasDocument = { f : f, str : str, pos : pos };
 					break;
 				default:
 				}
 			}
 		var isComp = cl.meta.has(":uiComp");
+		var foundComp = null;
 		if( isComp ) {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
-				m.hasDocument = hasDocument;
+				m.hasDocument = hasDocument != null;
 				if( componentsType == null ) componentsType = m.baseType;
 				Context.defineType(m.buildRuntimeComponent(componentsType,fields));
 				var t = m.getRuntimeComponentType();
@@ -324,13 +322,26 @@ class Macros {
 					static var ref : $t = null;
 				}).fields[0]);
 				COMPONENTS.set(m.name, m);
+				foundComp = m.name;
+				RESOLVED_COMPONENTS.set(m.name,{ path : null, c : m }); // allow self resolution in document build
 			} catch( e : MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
 			}
 		}
+
+		if( hasDocument != null ) {
+			try {
+				buildDocument(cl, hasDocument.str, hasDocument.pos, fields);
+			} catch( e : Error ) {
+				Context.error(e.message, makePos(hasDocument.pos,e.pmin,e.pmax));
+			}
+			cl.meta.add(":hasDomkitSrc", [], cl.pos);
+			fields.remove(hasDocument.f);
+		}
+		if( foundComp != null )
+			RESOLVED_COMPONENTS.remove(foundComp);
 		return fields;
 	}
-
 
 	static function error( msg : String, pmin : Int, pmax : Int = -1 ) : Dynamic {
 		throw new Error(msg, pmin, pmax);
