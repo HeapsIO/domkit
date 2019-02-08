@@ -12,6 +12,7 @@ class Macros {
 	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
 	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
+	@:persistent static var preload : Array<String> = [];
 	static var RESOLVED_COMPONENTS = new Map();
 
 	public static dynamic function customTextParser( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : haxe.macro.Expr {
@@ -297,6 +298,15 @@ class Macros {
 	}
 
 	public static function buildObject() {
+
+		while( preload.length > 0 ) {
+			var p = preload.shift();
+			switch( Context.getType(p) ) {
+			case TInst(c,_): c.get(); // force build
+			default:
+			}
+		}
+
 		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
 		var hasDocument = null;
