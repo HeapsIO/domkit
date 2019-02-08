@@ -15,7 +15,7 @@ class Macros {
 	@:persistent static var preload : Array<String> = [];
 	static var RESOLVED_COMPONENTS = new Map();
 
-	public static dynamic function customTextParser( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : haxe.macro.Expr {
+	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
 		return null;
 	}
 
@@ -86,6 +86,9 @@ class Macros {
 			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
 			var args = comp.getConstructorArgs();
 			var eargs = [];
+			if( m.arguments == null ) m.arguments = [];
+			if( m.attributes == null ) m.attributes = [];
+			if( m.children == null ) m.children = [];
 			if( isRoot ) {
 				if( m.arguments.length > 0 )
 					error("Arguments should be passed in super constructor", m.pmin, m.pmax);
@@ -206,18 +209,14 @@ class Macros {
 				replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
 			}
 			return expr;
-		case CustomText(id):
+		case Macro(id):
 			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
 				case RawValue(v): { expr : EConst(CString(v)), pos : makePos(pos, a.pmin, a.pmax) };
 				case Code(e): e;
 			}];
-			var expr = customTextParser(id, args, makePos(pos, m.pmin, m.pmax));
-			if( expr == null ) error("Unsupported custom text", m.pmin, m.pmax);
-			var c = loadComponent("text",m.pmin, m.pmax);
-			return macro {
-				var tmp = domkit.Element.create("text",null,tmp);
-				tmp.setAttribute("text",VString($expr));
-			};
+			var m = processMacro(id, args, makePos(pos, m.pmin, m.pmax));
+			if( m == null ) error("Unsupported custom text", m.pmin, m.pmax);
+			return buildComponentsInit(m, fields, pos);
 		}
 	}
 

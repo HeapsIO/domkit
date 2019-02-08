@@ -27,7 +27,7 @@ enum abstract MToken(Int) {
 	var CDATA;
 	var ESCAPE;
 	var ARGS;
-	var TEXT_ID;
+	var MACRO_ID;
 }
 
 typedef CodeExpr = #if macro haxe.macro.Expr #else String #end;
@@ -36,7 +36,7 @@ enum MarkupKind {
 	Node( name : String );
 	Text( text : String );
 	CodeBlock( v : String );
-	CustomText( id : String );
+	Macro( id : String );
 }
 
 enum AttributeValue {
@@ -211,15 +211,15 @@ class MarkupParser {
 					case '@'.code:
 						buf.addSub(str, start, p - start);
 						if( StringTools.trim(buf.toString()) == "" ) {
-							state = TEXT_ID;
+							state = MACRO_ID;
 							start = p + 1;
 						}
 					}
-				case TEXT_ID:
+				case MACRO_ID:
 					if( !isValidChar(c) ) {
 						var id = str.substr(start, p - start);
 						var m : Markup = {
-							kind : CustomText(id),
+							kind : Macro(id),
 							pmin : start,
 							pmax : p,
 						};
