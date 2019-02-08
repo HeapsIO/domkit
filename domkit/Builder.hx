@@ -100,6 +100,8 @@ class Builder<T> {
 			path.pop();
 		case CodeBlock(code):
 			warn("Unsupported code block", x.pmin, x.pmax);
+		case Macro(_):
+			warn("Unsupported macro", x.pmin, x.pmax);
 		}
 		return inst;
 	}

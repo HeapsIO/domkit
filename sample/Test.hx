@@ -1,3 +1,5 @@
+import domkit.Builder;
+
 class Obj extends Components.MydivComponent implements domkit.Object {
 
 	static var SRC =
