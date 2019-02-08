@@ -1,6 +1,6 @@
 package domkit;
 
-private class RuleStyle {
+class RuleStyle {
 	public var p : Property;
 	public var value : CssValue;
 	public var lastHandler : Component.PropertyHandler<Dynamic,Dynamic>;
@@ -11,7 +11,7 @@ private class RuleStyle {
 	}
 }
 
-private class Rule {
+class Rule {
 	public var id : Int;
 	public var priority : Int;
 	public var cl : CssParser.CssClass;
@@ -36,6 +36,9 @@ class CssStyle {
 	function sortByPriority(r1:Rule, r2:Rule) {
 		var dp = r2.priority - r1.priority;
 		return dp == 0 ? r2.id - r1.id : dp;
+	}
+
+	function onInvalidProperty( e : Element<Dynamic>, s : RuleStyle, msg : String ) {
 	}
 
 	function applyStyle<T>( e : Element<T>, force : Bool ) {
@@ -83,14 +86,18 @@ class CssStyle {
 				for( p in r.style ) {
 					var pr = p.p;
 					var h = e.component.getHandler(pr);
-					if( h == null ) continue;
+					if( h == null ) {
+						onInvalidProperty(e, p, "Unsupported property");
+						continue;
+					}
 					if( p.lastHandler != h ) {
 						try {
 							var value = h.parser(p.value);
 							p.lastHandler = h;
 							p.lastValue = value;
-						} catch( e : Property.InvalidProperty ) {
+						} catch( err : Property.InvalidProperty ) {
 							// invalid property
+							onInvalidProperty(e, p, err.message);
 							continue;
 						}
 					}

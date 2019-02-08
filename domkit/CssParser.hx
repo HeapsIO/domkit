@@ -123,7 +123,7 @@ class CssParser {
 		return v;
 	}
 
-	function valueStr(v) {
+	public static function valueStr(v) {
 		return switch( v ) {
 		case VIdent(i): i;
 		case VString(s): '"' + s + '"';
