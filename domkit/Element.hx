@@ -165,6 +165,7 @@ class Element<T> {
 			value = c.make(args, parent == null ? null : parent.obj);
 		if( c.hasDocument && parent != null ) {
 			e = ((value:Dynamic).document : Document<BaseT>).root;
+			e.component = cast c;
 			e.parent = parent;
 			if( parent != null ) parent.children.push(e);
 		} else

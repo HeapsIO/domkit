@@ -152,8 +152,8 @@ class Macros {
 			var exprs : Array<Expr> = if( isRoot ) {
 				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
 				[
-					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,(null:domkit.Element<$componentsType>),$baseCheck)),
-					(macro document = new domkit.Document(tmp)),
+					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,null,$baseCheck)),
+					(macro if( document == null ) document = new domkit.Document(tmp)),
 				];
 			} else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
@@ -259,7 +259,7 @@ class Macros {
 		var isFirst = true;
 		while( csup != null ) {
 			var cl = csup.t.get();
-			if( cl.meta.has(":hasDomKitSrc") ) {
+			if( cl.findField("document") != null ) {
 				isFirst = false;
 				break;
 			}
@@ -344,7 +344,6 @@ class Macros {
 			} catch( e : Error ) {
 				Context.error(e.message, makePos(hasDocument.pos,e.pmin,e.pmax));
 			}
-			cl.meta.add(":hasDomkitSrc", [], cl.pos);
 			fields.remove(hasDocument.f);
 		}
 		if( foundComp != null )
