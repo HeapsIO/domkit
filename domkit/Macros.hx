@@ -4,6 +4,12 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import domkit.Error;
 using haxe.macro.Tools;
+
+typedef ComponentData = {
+	var declaredIds : Map<String,Bool>;
+	var fields : Array<haxe.macro.Expr.Field>;
+}
+
 #end
 
 class Macros {
@@ -86,7 +92,7 @@ class Macros {
 		return error("Could not load component '"+name+"'", pmin, pmax);
 	}
 
-	static function buildComponentsInit( m : MarkupParser.Markup, fields : Array<haxe.macro.Expr.Field>, pos : Position, isRoot = false ) : Expr {
+	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false ) : Expr {
 		switch (m.kind) {
 		case Node(name):
 			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
@@ -117,6 +123,15 @@ class Macros {
 					}
 				}
 			}
+
+			var access = APrivate;
+			for( a in m.attributes )
+				if( a.name == "public" && a.value.match(RawValue("true")) ) {
+					m.attributes.remove(a);
+					access = APublic;
+					break;
+				}
+
 			var avalues = [];
 			var aexprs = [];
 			for( attr in m.attributes ) {
@@ -170,8 +185,7 @@ class Macros {
 				];
 			} else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
-			var declaredIds = new Map<String,Bool>();
-			for( a in m.attributes )
+			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
 					case RawValue(v): v;
@@ -181,20 +195,20 @@ class Macros {
 					if( isArray ) {
 						field = field.substr(0,field.length-2);
 						exprs.push(macro this.$field.push(cast tmp.obj));
-						if( !declaredIds.exists(field) ) {
-							declaredIds.set(field, true);
-							fields.push({
+						if( !data.declaredIds.exists(field) ) {
+							data.declaredIds.set(field, true);
+							data.fields.push({
 								name : field,
-								access : [APublic],
+								access : [access],
 								pos : makePos(pos, a.pmin, a.pmax),
 								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), macro []),
 							});
 						}
 					} else {
 						exprs.push(macro this.$field = cast tmp.obj);
-						fields.push({
+						data.fields.push({
 							name : field,
-							access : [APublic],
+							access : [access],
 							pos : makePos(pos, a.pmin, a.pmax),
 							kind : FVar(ct),
 						});
@@ -203,7 +217,7 @@ class Macros {
 			for( e in aexprs )
 				exprs.push(e);
 			for( c in m.children ) {
-				var e = buildComponentsInit(c, fields, pos);
+				var e = buildComponentsInit(c, data, pos);
 				if( e != null ) exprs.push(e);
 			}
 			return macro $b{exprs};
@@ -219,7 +233,7 @@ class Macros {
 			case EConst(CIdent(v)):
 				return macro domkit.Element.create("object",null,tmp,$i{v});
 			default:
-				replaceLoop(expr, function(m) return buildComponentsInit(m, fields, pos));
+				replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
 			}
 			return expr;
 		case Macro(id):
@@ -229,7 +243,7 @@ class Macros {
 			}];
 			var m = processMacro(id, args, makePos(pos, m.pmin, m.pmax));
 			if( m == null ) error("Unsupported custom text", m.pmin, m.pmax);
-			return buildComponentsInit(m, fields, pos);
+			return buildComponentsInit(m, data, pos);
 		}
 	}
 
@@ -273,7 +287,7 @@ class Macros {
 			default: throw "assert";
 			}
 
-		var initExpr = buildComponentsInit(root, fields, pos, true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map() }, pos, true);
 		var csup = cl.superClass;
 		var isFirst = true;
 		while( csup != null ) {

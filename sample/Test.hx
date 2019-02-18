@@ -5,7 +5,7 @@ class Obj extends Components.MydivComponent implements domkit.Object {
 	static var SRC =
 	<mydiv class="foo" padding-left="$value" color="blue">
 		@exampleText("!")
-		<custom(55) id="sub" custom-color="#ff0 0.5" active/>
+		<custom(55) public id="sub" custom-color="#ff0 0.5" active/>
 	</mydiv>
 
 	public function new(value,?parent) {
