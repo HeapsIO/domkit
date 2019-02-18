@@ -25,7 +25,7 @@ class Builder<T> {
 	}
 
 	function makeElement<T>( name : String, args : Array<Dynamic>, parent : Element<T> ) : Element<T> {
-		var comp = Component.get(name);
+		var comp = Component.get(name,true);
 		if( comp == null ) return null;
 		return new Element(comp.make(args, parent == null ? null : parent.obj), comp, parent);
 	}

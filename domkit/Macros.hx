@@ -158,8 +158,15 @@ class Macros {
 			var exprs : Array<Expr> = if( isRoot ) {
 				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
 				[
-					(macro var tmp : domkit.Element<$componentsType> = domkit.Element.create($v{name},$attributes,null,$baseCheck)),
-					(macro if( document == null ) document = new domkit.Document(tmp)),
+					(macro var tmp : domkit.Element<$componentsType>),
+					macro if( document == null ) {
+						tmp = domkit.Element.create($v{name},$attributes,null,$baseCheck);
+						document = new domkit.Document(tmp);
+					} else {
+						tmp = cast document.root;
+						tmp.component = cast domkit.Component.get($v{name});
+						tmp.initAttributes($attributes);
+					},
 				];
 			} else
 				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
@@ -255,10 +262,16 @@ class Macros {
 		return false;
 	}
 
-	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field> ) {
+	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field>, rootName : String ) {
 		var p = new MarkupParser();
 		var pinf = Context.getPosInfos(pos);
 		var root = p.parse(str,pinf.file,pinf.min).children[0];
+
+		if( rootName != null )
+			switch( root.kind ) {
+			case Node(n): if( n != rootName ) Context.error("Root element shoud be "+rootName, pos);
+			default: throw "assert";
+			}
 
 		var initExpr = buildComponentsInit(root, fields, pos, true);
 		var csup = cl.superClass;
@@ -315,15 +328,21 @@ class Macros {
 		var cl = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
 		var hasDocument = null;
-		for( f in fields )
+		var hasMeta = null;
+		for( f in fields ) {
 			if( f.name == "SRC" ) {
 				switch( f.kind ) {
 				case FVar(_,{ expr : EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }), pos : pos }):
 					hasDocument = { f : f, str : str, pos : pos };
-					break;
 				default:
 				}
 			}
+			if( hasMeta == null )
+				for( m in f.meta )
+					if( m.name == ":p" )
+						hasMeta = m.pos;
+		}
+
 		var isComp = cl.meta.has(":uiComp");
 		var foundComp = null;
 		if( isComp ) {
@@ -342,11 +361,12 @@ class Macros {
 			} catch( e : MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
 			}
-		}
+		} else if( hasMeta != null )
+			Context.error("@:p not allowed without @:uiComp", hasMeta);
 
 		if( hasDocument != null ) {
 			try {
-				buildDocument(cl, hasDocument.str, hasDocument.pos, fields);
+				buildDocument(cl, hasDocument.str, hasDocument.pos, fields, foundComp);
 			} catch( e : Error ) {
 				Context.error(e.message, makePos(hasDocument.pos,e.pmin,e.pmax));
 			}

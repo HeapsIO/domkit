@@ -223,7 +223,7 @@ class CssParser {
 					#if macro
 					var comp = @:privateAccess Macros.loadComponent(i,p,this.pos);
 					#else
-					var comp = Component.get(i);
+					var comp = Component.get(i,true);
 					#end
 					if( comp == null ) error("Unknown component "+i);
 					c.component = comp;

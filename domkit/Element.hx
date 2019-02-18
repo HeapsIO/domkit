@@ -159,7 +159,6 @@ class Element<T> {
 	static var pid = Property.get("id");
 	public static function create<BaseT,T:BaseT>( comp : String, attributes : haxe.DynamicAccess<String>, ?parent : Element<BaseT>, ?value : T, ?args : Array<Dynamic> ) {
 		var c = Component.get(comp);
-		if( c == null ) throw "Unknown component "+comp;
 		var e;
 		if( value == null )
 			value = c.make(args, parent == null ? null : parent.obj);

@@ -58,8 +58,10 @@ class Component<BaseT,T> {
 		return ph;
 	}
 
-	public static function get( name : String ) {
-		return COMPONENTS.get(name);
+	public static function get( name : String, opt = false ) {
+		var c = COMPONENTS.get(name);
+		if( c == null && !opt ) throw "Unknown component "+name;
+		return c;
 	}
 
 	@:persistent static var COMPONENTS = new Map<String,Component<Dynamic,Dynamic>>();
