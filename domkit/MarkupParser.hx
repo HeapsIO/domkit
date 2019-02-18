@@ -214,6 +214,26 @@ class MarkupParser {
 							state = MACRO_ID;
 							start = p + 1;
 						}
+					case '/'.code, '*'.code:
+						if( p > start && str.charCodeAt(p-1) == '/'.code ) {
+							buf.addSub(str, start, p - 1 - start);
+							if( c == '/'.code ) {
+								while( true ) {
+									c = str.fastCodeAt(p++);
+									if( StringTools.isEof(c) || c == '\n'.code ) break;
+								}
+								start = p;
+							} else {
+								start = p - 1;
+								var end = false;
+								while( true ) {
+									c = str.fastCodeAt(p++);
+									if( StringTools.isEof(c) ) error("Unclosed comment", start, start + 2);
+									if( c == '*'.code ) end = true else if( end && c == '/'.code ) break; else end = false;
+								}
+								start = p;
+							}
+						}
 					}
 				case MACRO_ID:
 					if( !isValidChar(c) ) {
