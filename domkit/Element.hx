@@ -149,6 +149,10 @@ class Element<T> {
 		return Ok;
 	}
 
+	public static dynamic function getParent<T>( e : T ) : T {
+		return null;
+	}
+
 	public static dynamic function addElement( e : Element<Dynamic>, to : Element<Dynamic> ) {
 	}
 

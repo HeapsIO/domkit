@@ -27,4 +27,13 @@ class Document<T> {
 		root.remove();
 	}
 
+	public function add<T2:{public var document:Document<T>;} & T>( v : T2 ) {
+		var elt = v.document.root;
+		if( elt.parent != null ) throw "Already added";
+		var parent = Element.getParent(v);
+		var parentElt = get(parent);
+		parentElt.children.push(v.document.root);
+		elt.parent = parentElt;
+	}
+
 }
