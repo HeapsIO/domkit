@@ -313,9 +313,10 @@ class CssParser {
 	}
 
 	function readValueUnit( f : Float, ?i : Int ) {
+		var curPos = pos;
 		var t = readToken();
 		return switch( t ) {
-		case TIdent(u):
+		case TIdent(u) if( pos == curPos + u.length ):
 			if( u == "px" )
 				(i == null ? VFloat(f) : VInt(i)); // ignore "px" unit suffit
 			else
