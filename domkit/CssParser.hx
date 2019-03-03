@@ -29,6 +29,7 @@ class CssClass {
 	public var parent : Null<CssClass>;
 	public var component : Null<Component<Dynamic,Dynamic>>;
 	public var className : Null<String>;
+	public var extraClasses : Null<Array<String>>;
 	public var pseudoClass : Null<String>;
 	public var id : Null<String>;
 	public function new() {
@@ -240,9 +241,20 @@ class CssParser {
 				switch( t ) {
 				case TIdent(i):
 					switch( last ) {
-					case TDot: c.className = i; def = true;
-					case TSharp: c.id = i; def = true;
-					case TDblDot: c.pseudoClass = i; def = true;
+					case TDot:
+						if( c.className == null )
+							c.className = i;
+						else {
+							if( c.extraClasses == null ) c.extraClasses = [];
+							c.extraClasses.push(i);
+						}
+						def = true;
+					case TSharp:
+						c.id = i;
+						def = true;
+					case TDblDot:
+						c.pseudoClass = i;
+						def = true;
 					default: unexpected(last);
 					}
 					last = null;

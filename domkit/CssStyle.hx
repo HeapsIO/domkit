@@ -174,6 +174,18 @@ class CssStyle {
 				}
 			if( !found )
 				return false;
+			if( c.extraClasses != null ) {
+				for( cname in c.extraClasses ) {
+					var found = false;
+					for( cc in e.classes )
+						if( cc == cname ) {
+							found = true;
+							break;
+						}
+					if( !found )
+						return false;
+				}
+			}
 		}
 		if( c.component != null && c.component != e.component )
 			return false;
