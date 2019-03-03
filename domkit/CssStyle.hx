@@ -133,7 +133,13 @@ class CssStyle {
 				while( c != null ) {
 					if( c.id != null ) nids++;
 					if( c.component != null ) nnodes++;
-					if( c.pseudoClass != null ) nothers++;
+					if( c.pseudoClasses != None ) {
+						var i = c.pseudoClasses.toInt();
+						while( i != 0 ) {
+							if( i & 1 != 0 ) nothers++;
+							i >>>= 1;
+						}
+					}
 					if( c.className != null ) nothers++;
 					c = c.parent;
 				}
@@ -150,18 +156,19 @@ class CssStyle {
 	}
 
 	public static function ruleMatch( c : CssParser.CssClass, e : Element<Dynamic> ) {
-		if( c.pseudoClass != null ) {
-			if( e.classes == null )
+		if( c.pseudoClasses != None ) {
+			if( c.pseudoClasses.has(HOver) && !e.hover )
 				return false;
-			var pc = ":" + c.pseudoClass;
-			var found = false;
-			for( cc in e.classes )
-				if( cc == pc ) {
-					found = true;
-					break;
-				}
-			if( !found )
-				return false;
+			if( e.parent != null ) {
+				if( c.pseudoClasses.has(FirstChild) && e.parent.children[0] != e )
+					return false;
+				if( c.pseudoClasses.has(LastChild) && e.parent.children[e.parent.children.length - 1] != e )
+					return false;
+				if( c.pseudoClasses.has(Odd) && e.parent.children.indexOf(e) & 1 == 0 )
+					return false;
+				if( c.pseudoClasses.has(Even) && e.parent.children.indexOf(e) & 1 != 0 )
+					return false;
+			}
 		}
 		if( c.className != null ) {
 			if( e.classes == null )
@@ -193,13 +200,18 @@ class CssStyle {
 			return false;
 		if( c.parent != null ) {
 			var p = e.parent;
-			while( p != null ) {
-				if( ruleMatch(c.parent, p) )
-					break;
-				p = p.parent;
+			switch( c.relation ) {
+			case None:
+				while( p != null ) {
+					if( ruleMatch(c.parent, p) )
+						break;
+					p = p.parent;
+				}
+				if( p == null )
+					return false;
+			case ImmediateChildren:
+				return p != null && ruleMatch(c.parent, p);
 			}
-			if( p == null )
-				return false;
 		}
 		return true;
 	}

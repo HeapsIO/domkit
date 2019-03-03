@@ -23,6 +23,34 @@ enum Token {
 	TStar;
 	TBkOpen;
 	TBkClose;
+	TSuperior;
+}
+
+enum abstract PseudoClass(Int) {
+
+	var None = 0;
+	var HOver = 1;
+	var FirstChild = 2;
+	var LastChild = 4;
+	var Odd = 8;
+	var Even = 16;
+
+	inline function new(v:Int) {
+		this = v;
+	}
+
+	public inline function toInt() return this;
+	public inline function has( c : PseudoClass ) return this & c.toInt() != 0;
+
+	@:op(a | b) inline function or( v : PseudoClass ) : PseudoClass {
+		return new PseudoClass(this | v.toInt());
+	}
+
+}
+
+enum abstract CssRelation(Int) {
+	var None = 0;
+	var ImmediateChildren = 1;
 }
 
 class CssClass {
@@ -30,8 +58,9 @@ class CssClass {
 	public var component : Null<Component<Dynamic,Dynamic>>;
 	public var className : Null<String>;
 	public var extraClasses : Null<Array<String>>;
-	public var pseudoClass : Null<String>;
+	public var pseudoClasses : PseudoClass = None;
 	public var id : Null<String>;
+	public var relation : CssRelation = None;
 	public function new() {
 	}
 }
@@ -85,6 +114,7 @@ class CssParser {
 			case TStar: "*";
 			case TBkOpen: "[";
 			case TBkClose: "]";
+			case TSuperior: ">";
 		};
 	}
 
@@ -220,6 +250,15 @@ class CssParser {
 				switch( t ) {
 				case TStar: def = true;
 				case TDot, TSharp, TDblDot: last = t;
+				case TSuperior:
+					if( def ) {
+						push(t);
+						return readClass(c);
+					}
+					if( c.relation != None ) unexpected(t);
+					c.relation = ImmediateChildren;
+					t = readToken();
+					if( t != TSpaces ) push(t);
 				case TIdent(i):
 					#if macro
 					var comp = @:privateAccess Macros.loadComponent(i,p,this.pos);
@@ -253,7 +292,20 @@ class CssParser {
 						c.id = i;
 						def = true;
 					case TDblDot:
-						c.pseudoClass = i;
+						switch( i ) {
+						case "hover":
+							c.pseudoClasses |= HOver;
+						case "first-child":
+							c.pseudoClasses |= FirstChild;
+						case "last-child":
+							c.pseudoClasses |= LastChild;
+						case "odd":
+							c.pseudoClasses |= Odd;
+						case "even":
+							c.pseudoClasses |= Even;
+						default:
+							throw new Error("Unknown selector "+i, pos - i.length - 1, pos);
+						}
 						def = true;
 					default: unexpected(last);
 					}
@@ -538,6 +590,7 @@ class CssParser {
 			case "*".code: return TStar;
 			case "[".code: return TBkOpen;
 			case "]".code: return TBkClose;
+			case ">".code: return TSuperior;
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {
