@@ -201,7 +201,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			case EConst(CIdent("auto")):
 				parserMode = PAuto;
 			case EConst(CIdent(name)):
-				var fname = "parse"+name.charAt(0).toUpperCase()+name.substr(1);
+				var fname = "parse"+componentNameToClass(name);
 				var meth = Reflect.field(this.parser,fname);
 				if( meth == null )
 					error(parserType.toString()+" has no field "+fname, pm.params[0].pos);
@@ -235,6 +235,17 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		h.position = f.pos;
 		h.fieldName = f.name;
 		h.parserExpr = prop.expr;
+	}
+
+	public static function componentNameToClass( name : String ) {
+		var uname = name.charAt(0).toUpperCase()+name.substr(1);
+		var parts = uname.split("-");
+		if( parts.length > 1 ) {
+			for( i in 1...parts.length )
+				parts[i] = parts[i].charAt(0).toUpperCase() + parts[i].substr(1);
+			uname = parts.join("");
+		}
+		return uname;
 	}
 
 	function fieldToProp( name : String ) {
@@ -325,7 +336,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	}
 
 	static function runtimeName( name : String ) {
-		return "Comp"+name.charAt(0).toUpperCase()+name.substr(1);
+		return "Comp"+componentNameToClass(name);
 	}
 
 	static function setPosRec( e : haxe.macro.Expr, p : Position ) {

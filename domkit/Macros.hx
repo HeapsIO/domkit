@@ -65,13 +65,7 @@ class Macros {
 			return c.c;
 		}
 		var lastError = null;
-		var uname = name.charAt(0).toUpperCase()+name.substr(1);
-		var parts = uname.split("-");
-		if( parts.length > 1 ) {
-			for( i in 1...parts.length )
-				parts[i] = parts[i].charAt(0).toUpperCase() + parts[i].substr(1);
-			uname = parts.join("");
-		}
+		var uname = MetaComponent.componentNameToClass(name);
 		for( p in componentsSearchPath ) {
 			var path = p.split("$").join(uname);
 			var t = try Context.getType(path) catch( e : Dynamic ) continue;
