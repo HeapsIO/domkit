@@ -9,11 +9,11 @@ enum SetAttributeResult {
 
 class Element<T> {
 
-	public var id : String;
-	public var obj : T;
-	public var component : Component<T,Dynamic>;
-	public var parent : Element<T>;
-	public var children : Array<Element<T>> = [];
+	public var id(default,null) : String;
+	public var obj(default,null) : T;
+	public var component(default,null) : Component<T,Dynamic>;
+	public var parent(default,null) : Element<T>;
+	public var children(default,null) : Array<Element<T>> = [];
 	public var hover(default,set) : Bool = false;
 	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];

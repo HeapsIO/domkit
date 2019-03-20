@@ -173,7 +173,7 @@ class Macros {
 						document = new domkit.Document(tmp);
 					} else {
 						tmp = cast document.root;
-						tmp.component = cast domkit.Component.get($v{name});
+						@:privateAccess tmp.component = cast domkit.Component.get($v{name});
 						tmp.initAttributes($attributes);
 					},
 				];

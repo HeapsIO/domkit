@@ -33,7 +33,7 @@ class Document<T> {
 		var parent = Element.getParent(v);
 		var parentElt = get(parent);
 		parentElt.children.push(v.document.root);
-		elt.parent = parentElt;
+		@:privateAccess elt.parent = parentElt;
 	}
 
 }
