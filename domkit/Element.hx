@@ -45,6 +45,8 @@ class Element<T> {
 	}
 
 	public function removeClass( c : String ) {
+		if( classes == null )
+			return;
 		if( classes.remove(c) ) {
 			needStyleRefresh = true;
 			if( classes.length == 0 ) classes = null;
