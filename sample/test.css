@@ -5,3 +5,7 @@
 .foo custom.over {
 	padding-left: 60;
 }
+
+custom {
+	max-width: none;
+}

@@ -37,6 +37,8 @@ class Test {
 		o.document.sync();
 		trace(o.sub.paddingLeft); // 60
 
+		trace(o.sub.maxWidth);
+
 	}
 
 }
