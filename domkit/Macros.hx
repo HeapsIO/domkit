@@ -324,12 +324,15 @@ class Macros {
 	}
 
 	public static function buildObject() {
-
-		while( preload.length > 0 ) {
-			var p = preload.shift();
-			switch( Context.getType(p) ) {
-			case TInst(c,_): c.get(); // force build
-			default:
+		var pre = preload;
+		if( pre.length > 0 ) {
+			preload = [];
+			while( pre.length > 0 ) {
+				var p = pre.shift();
+				switch( Context.getType(p) ) {
+				case TInst(c,_): c.get(); // force build
+				default:
+				}
 			}
 		}
 
