@@ -34,6 +34,7 @@ class Document<T> {
 		var parentElt = get(parent);
 		parentElt.children.push(v.document.root);
 		@:privateAccess elt.parent = parentElt;
+		@:privateAccess elt.needStyleRefresh = true;
 	}
 
 }
