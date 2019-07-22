@@ -58,6 +58,15 @@ class ValueParser {
 				color = (r << 16) | (g << 8) | b;
 			}
 			return color | 0xFF000000;
+		case VCall("rgba", [r,g,b,a]):
+			var r = parseFloat(r);
+			var g = parseFloat(g);
+			var b = parseFloat(b);
+			var a = parseFloat(a);
+			return (Std.int(hxd.Math.clamp(r,0,1)*255) << 16)
+				| (Std.int(hxd.Math.clamp(g,0,1)*255) << 8)
+				| Std.int(hxd.Math.clamp(b,0,1)*255)
+				| (Std.int(hxd.Math.clamp(a,0,1)*255) << 24);
 		default:
 			return invalidProp();
 		}
