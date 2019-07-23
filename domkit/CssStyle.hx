@@ -159,6 +159,8 @@ class CssStyle {
 		if( c.pseudoClasses != None ) {
 			if( c.pseudoClasses.has(HOver) && !e.hover )
 				return false;
+			if( c.pseudoClasses.has(Active) && !e.active )
+				return false;
 			if( e.parent != null ) {
 				if( c.pseudoClasses.has(FirstChild) && e.parent.children[0] != e )
 					return false;

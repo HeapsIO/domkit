@@ -15,6 +15,7 @@ class Element<T> {
 	public var parent(default,null) : Element<T>;
 	public var children(default,null) : Array<Element<T>> = [];
 	public var hover(default,set) : Bool = false;
+	public var active(default,set) : Bool = false;
 	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
@@ -76,6 +77,12 @@ class Element<T> {
 		if( hover == b ) return b;
 		needStyleRefresh = true;
 		return hover = b;
+	}
+
+	function set_active(b) {
+		if( active == b ) return b;
+		needStyleRefresh = true;
+		return active = b;
 	}
 
 	function initStyle( p : String, value : Dynamic ) {

@@ -34,6 +34,7 @@ enum abstract PseudoClass(Int) {
 	var LastChild = 4;
 	var Odd = 8;
 	var Even = 16;
+	var Active = 32;
 
 	inline function new(v:Int) {
 		this = v;
@@ -303,6 +304,8 @@ class CssParser {
 							c.pseudoClasses |= Odd;
 						case "even":
 							c.pseudoClasses |= Even;
+						case "active":
+							c.pseudoClasses |= Active;
 						default:
 							throw new Error("Unknown selector "+i, pos - i.length - 1, pos);
 						}
