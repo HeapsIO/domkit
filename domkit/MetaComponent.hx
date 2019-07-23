@@ -379,6 +379,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			eargs.push(macro parent);
 			newExpr = macro function(args,parent) return ($newExpr)($a{eargs});
 		}
+		setPosRec(newExpr, classType.pos);
 
 		var handlers = [];
 		for( i in 0...propsHandler.length ) {
