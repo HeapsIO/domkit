@@ -162,23 +162,22 @@ class Macros {
 					aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},attrib));
 				}
 			}
-			var attributes = { expr : EObjectDecl([for( m in avalues ) { field : m.attr, expr : { expr : EConst(CString(m.value)), pos : pos } }]), pos : pos };
+			var attributes = avalues.length == 0 ? macro null : { expr : EObjectDecl([for( m in avalues ) { field : m.attr, expr : { expr : EConst(CString(m.value)), pos : pos } }]), pos : pos };
 			var ct = comp.baseType;
 			var exprs : Array<Expr> = if( isRoot ) {
 				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
 				[
-					(macro var tmp : domkit.Element<$componentsType>),
-					macro if( document == null ) {
-						tmp = domkit.Element.create($v{name},$attributes,null,$baseCheck);
-						document = new domkit.Document(tmp);
+					(macro var tmp : domkit.Properties<$componentsType> = this.dom),
+					macro if( tmp == null ) {
+						tmp = domkit.Properties.create($v{name},($baseCheck:$componentsType), $attributes);
+						this.dom = tmp;
 					} else {
-						tmp = cast document.root;
 						@:privateAccess tmp.component = cast domkit.Component.get($v{name});
 						tmp.initAttributes($attributes);
 					},
 				];
 			} else
-				[macro var tmp = domkit.Element.create($v{name},$attributes, tmp, null, [$a{eargs}])];
+				[macro var tmp = @:privateAccess domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes)];
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
@@ -218,7 +217,7 @@ class Macros {
 		case Text(text):
 			var c = loadComponent("text",m.pmin, m.pmax);
 			return macro {
-				var tmp = domkit.Element.create("text",null,tmp);
+				var tmp = @:privateAccess domkit.Properties.createNew("text",null,tmp,[]);
 				tmp.setAttribute("text",VString($v{text}));
 			};
 		case CodeBlock(expr):
@@ -292,15 +291,6 @@ class Macros {
 			}
 			csup = cl.superClass;
 		}
-
-		if( isFirst )
-			for( f in (macro class {
-				public var document : domkit.Document<$componentsType>;
-				public function setStyle( style : domkit.CssStyle ) {
-					document.setStyle(style);
-				}
-			}).fields )
-				fields.push(f);
 
 		var found = false;
 		for( f in fields )
