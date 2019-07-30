@@ -7,33 +7,56 @@ enum SetAttributeResult {
 	InvalidValue( ?msg : String );
 }
 
-class Element<T> {
+private class DirtyRef {
+	var dirty : Bool;
+	public function new() {
+		mark();
+	}
+	public inline function mark() {
+		dirty = true;
+	}
+}
+
+class Properties<T:Model<T>> {
 
 	public var id(default,null) : String;
 	public var obj(default,null) : T;
 	public var component(default,null) : Component<T,Dynamic>;
-	public var parent(default,null) : Element<T>;
-	public var children(default,null) : Array<Element<T>> = [];
 	public var hover(default,set) : Bool = false;
 	public var active(default,set) : Bool = false;
+	public var parent(get,never) : Properties<T>;
+
 	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
 	var needStyleRefresh : Bool = true;
+	var dirty : DirtyRef;
 
-	public function new(obj,component,?parent) {
+	public function new(obj,component) {
 		this.obj = obj;
 		this.component = component;
-		this.parent = parent;
-		if( parent != null ) parent.children.push(this);
+		onParentChanged();
+		dirty.mark();
 	}
 
-	public function remove() {
-		if( parent != null ) {
-			parent.children.remove(this);
-			parent = null;
+	inline function needRefresh() {
+		needStyleRefresh = true;
+		dirty.mark();
+	}
+
+	public inline function onParentChanged() {
+		var p = parent;
+		if( p == null )
+			dirty = new DirtyRef();
+		else {
+			dirty = p.dirty;
+			needRefresh();
 		}
-		removeElement(this);
+	}
+
+	inline function get_parent() {
+		var p = obj.parent;
+		return p == null ? null : p.dom;
 	}
 
 	public function addClass( c : String ) {
@@ -41,52 +64,55 @@ class Element<T> {
 			classes = [];
 		if( classes.indexOf(c) < 0 ) {
 			classes.push(c);
-			needStyleRefresh = true;
+			needRefresh();
 		}
+	}
+
+	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
+		if( partialRefresh && !dirty.dirty ) return;
+		style.applyStyle(this, !partialRefresh);
+		dirty.dirty = false;
 	}
 
 	public function removeClass( c : String ) {
 		if( classes == null )
 			return;
 		if( classes.remove(c) ) {
-			needStyleRefresh = true;
+			needRefresh();
 			if( classes.length == 0 ) classes = null;
 		}
 	}
 
-	public function toggleClass( c : String ) {
-		if( classes == null )
-			classes = [c];
-		else if( classes.remove(c) ) {
-			if( classes.length == 0 ) classes = null;
-		} else
-			classes.push(c);
-		needStyleRefresh = true;
-	}
-
-	public function get( obj : T ) {
-		if( this.obj == obj ) return this;
-		for( c in children ) {
-			var v = c.get(obj);
-			if( v != null ) return v;
-		}
-		return null;
+	public function toggleClass( c : String, ?b : Bool ) {
+		if( b == null ) {
+			if( classes == null )
+				classes = [c];
+			else if( classes.remove(c) ) {
+				if( classes.length == 0 ) classes = null;
+			} else
+				classes.push(c);
+			needRefresh();
+		} else if( b )
+			addClass(c);
+		else
+			removeClass(c);
 	}
 
 	function set_hover(b) {
 		if( hover == b ) return b;
-		needStyleRefresh = true;
+		needRefresh();
 		return hover = b;
 	}
 
 	function set_active(b) {
 		if( active == b ) return b;
-		needStyleRefresh = true;
+		needRefresh();
 		return active = b;
 	}
 
 	function initStyle( p : String, value : Dynamic ) {
 		style.push({ p : Property.get(p), value : value });
+		needRefresh();
 	}
 
 	public function initAttributes( attr : haxe.DynamicAccess<String> ) {
@@ -119,7 +145,7 @@ class Element<T> {
 			case VIdent(i):
 				if( id != i ) {
 					id = i;
-					needStyleRefresh = true;
+					needRefresh();
 				}
 			default: return InvalidValue();
 			}
@@ -131,7 +157,7 @@ class Element<T> {
 			case VGroup(vl): classes = [for( v in vl ) switch( v ) { case VIdent(i): i; default: return InvalidValue(); }];
 			default: return InvalidValue();
 			}
-			needStyleRefresh = true;
+			needRefresh();
 			return Ok;
 		}
 		var handler = component.getHandler(p);
@@ -165,33 +191,27 @@ class Element<T> {
 		return Ok;
 	}
 
-	public static dynamic function getParent<T>( e : T ) : T {
-		return null;
-	}
-
-	public static dynamic function addElement( e : Element<Dynamic>, to : Element<Dynamic> ) {
-	}
-
-	public static dynamic function removeElement( e : Element<Dynamic> ) {
-	}
-
 	static var pclass = Property.get("class");
 	static var pid = Property.get("id");
-	public static function create<BaseT,T:BaseT>( comp : String, attributes : haxe.DynamicAccess<String>, ?parent : Element<BaseT>, ?value : T, ?args : Array<Dynamic> ) {
+
+	public static function create<BaseT:Model<BaseT>,T:BaseT>( comp : String, value : T, ?attributes : haxe.DynamicAccess<String> ) {
+		if( value == null ) throw "Component value is not set";
 		var c = Component.get(comp);
-		var e;
-		if( value == null )
-			value = c.make(args, parent == null ? null : parent.obj);
-		if( c.hasDocument && parent != null ) {
-			e = ((value:Dynamic).document : Document<BaseT>).root;
-			e.component = cast c;
-			e.parent = parent;
-			if( parent != null ) parent.children.push(e);
-		} else
-			e = new Element<BaseT>(value, cast c, parent);
-		if( attributes != null ) e.initAttributes(attributes);
-		if( parent != null && value != null ) addElement(e, parent);
-		return e;
+		var p = new Properties<BaseT>(value, cast c);
+		if( attributes != null )
+			p.initAttributes(attributes);
+		return p;
+	}
+
+	static function createNew<T:Model<T>>( comp : String, parent : Properties<T>, args : Array<Dynamic>, ?attributes : haxe.DynamicAccess<String> ) : Properties<T> {
+		var c = Component.get(comp);
+		var value : T = c.make(args, parent.obj);
+		var p = value.dom;
+		if( p == null )
+			value.dom = p = new Properties<T>(value, cast c);
+		if( attributes != null )
+			p.initAttributes(attributes);
+		return p;
 	}
 
 }

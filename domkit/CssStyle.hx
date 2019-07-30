@@ -21,7 +21,7 @@ class Rule {
 	}
 }
 
-@:access(domkit.Element)
+@:access(domkit.Properties)
 class CssStyle {
 
 	static var TAG = 0;
@@ -38,10 +38,10 @@ class CssStyle {
 		return dp == 0 ? r2.id - r1.id : dp;
 	}
 
-	function onInvalidProperty( e : Element<Dynamic>, s : RuleStyle, msg : String ) {
+	function onInvalidProperty( e : Properties<Dynamic>, s : RuleStyle, msg : String ) {
 	}
 
-	function applyStyle<T>( e : Element<T>, force : Bool ) {
+	function applyStyle( e : Properties<Dynamic>, force : Bool ) {
 		if( needSort ) {
 			needSort = false;
 			rules.sort(sortByPriority);
@@ -121,8 +121,13 @@ class CssStyle {
 			// parent style has changed, we need to sync children
 			force = true;
 		}
-		for( c in e.children )
-			applyStyle(c, force);
+		var obj : Model<Dynamic> = e.obj;
+		for( c in obj.getChildren() ) {
+			var c : Model<Dynamic> = c;
+			if( c.dom == null )
+				continue;
+			applyStyle(c.dom, force);
+		}
 	}
 
 	public function add( sheet : CssParser.CssSheet ) {
@@ -155,20 +160,22 @@ class CssStyle {
 		needSort = true;
 	}
 
-	public static function ruleMatch( c : CssParser.CssClass, e : Element<Dynamic> ) {
+	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
 		if( c.pseudoClasses != None ) {
 			if( c.pseudoClasses.has(HOver) && !e.hover )
 				return false;
 			if( c.pseudoClasses.has(Active) && !e.active )
 				return false;
-			if( e.parent != null ) {
-				if( c.pseudoClasses.has(FirstChild) && e.parent.children[0] != e )
+			var parent = e.obj.parent;
+			var parent = parent == null ? null : parent.dom;
+			if( parent != null ) {
+				if( c.pseudoClasses.has(FirstChild) && parent.children[0] != e )
 					return false;
-				if( c.pseudoClasses.has(LastChild) && e.parent.children[e.parent.children.length - 1] != e )
+				if( c.pseudoClasses.has(LastChild) && parent.children[parent.children.length - 1] != e )
 					return false;
-				if( c.pseudoClasses.has(Odd) && e.parent.children.indexOf(e) & 1 == 0 )
+				if( c.pseudoClasses.has(Odd) && parent.children.indexOf(e) & 1 == 0 )
 					return false;
-				if( c.pseudoClasses.has(Even) && e.parent.children.indexOf(e) & 1 != 0 )
+				if( c.pseudoClasses.has(Even) && parent.children.indexOf(e) & 1 != 0 )
 					return false;
 			}
 		}
