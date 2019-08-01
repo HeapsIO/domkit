@@ -217,7 +217,7 @@ class Macros {
 		case Text(text):
 			var c = loadComponent("text",m.pmin, m.pmax);
 			return macro {
-				var tmp = @:privateAccess domkit.Properties.createNew("text",null,tmp,[]);
+				var tmp = @:privateAccess domkit.Properties.createNew("text",tmp,[]);
 				tmp.setAttribute("text",VString($v{text}));
 			};
 		case CodeBlock(expr):
