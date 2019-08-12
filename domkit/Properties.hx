@@ -145,6 +145,7 @@ class Properties<T:Model<T>> {
 			case VIdent(i):
 				if( id != i ) {
 					id = i;
+					updateComponentId(this);
 					needRefresh();
 				}
 			default: return InvalidValue();
@@ -193,6 +194,9 @@ class Properties<T:Model<T>> {
 
 	static var pclass = Property.get("class");
 	static var pid = Property.get("id");
+
+	static dynamic function updateComponentId( p : Properties<Dynamic> ) {
+	}
 
 	public static function create<BaseT:Model<BaseT>,T:BaseT>( comp : String, value : T, ?attributes : haxe.DynamicAccess<String> ) {
 		if( value == null ) throw "Component value is not set";
