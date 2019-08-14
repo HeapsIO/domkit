@@ -186,6 +186,15 @@ class Macros {
 					}
 					var isArray = StringTools.endsWith(field,"[]");
 					if( isArray ) {
+						switch( attributes.expr ) {
+						case EObjectDecl(fields):
+							for( f in fields )
+								if( f.field == "id" ) {
+									fields.remove(f);
+									break;
+								}
+						default:
+						}
 						field = field.substr(0,field.length-2);
 						exprs.push(macro this.$field.push(cast tmp.obj));
 						if( !data.declaredIds.exists(field) ) {

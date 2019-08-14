@@ -130,8 +130,10 @@ class Properties<T:Model<T>> {
 					ret = setAttribute(a, parser.parseValue(attr.get(a)));
 			}
 			#if sys
-			if( ret != Ok )
+			if( ret != Ok ) {
+				if( ret.match(InvalidValue(null)) ) ret = InvalidValue(attr.get(a));
 				Sys.println(component.name+"."+a+"> "+ret);
+			}
 			#end
 		}
 	}
