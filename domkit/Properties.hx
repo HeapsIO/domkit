@@ -44,7 +44,7 @@ class Properties<T:Model<T>> {
 		dirty.mark();
 	}
 
-	public inline function onParentChanged() {
+	public function onParentChanged() {
 		var p = parent;
 		if( p == null )
 			dirty = new DirtyRef();
@@ -52,6 +52,9 @@ class Properties<T:Model<T>> {
 			dirty = p.dirty;
 			needRefresh();
 		}
+		for( c in obj.getChildren() )
+			if( c.dom != null )
+				c.dom.onParentChanged();
 	}
 
 	inline function get_parent() {
