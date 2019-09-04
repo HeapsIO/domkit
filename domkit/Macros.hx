@@ -109,12 +109,11 @@ class Macros {
 							error("Missing argument "+a.name+"("+a.type.toString()+")", m.pmin, m.pmin + name.length);
 						continue;
 					}
-					switch( cur.value ) {
-					case Code(expr):
-						eargs.push({ expr : ECheckType(expr,a.type), pos : expr.pos });
-					case RawValue(v):
-						error("TODO", cur.pmin, cur.pmax);
-					}
+					var expr = switch( cur.value ) {
+					case Code(expr): expr;
+					case RawValue(v): { expr : EConst(CString(v)), pos : makePos(pos,cur.pmin,cur.pmax) };
+					};
+					eargs.push({ expr : ECheckType(expr,a.type), pos : expr.pos });
 				}
 			}
 
