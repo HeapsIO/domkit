@@ -237,8 +237,10 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		h.parserExpr = prop.expr;
 	}
 
-	public static function componentNameToClass( name : String ) {
-		var uname = name.charAt(0).toUpperCase()+name.substr(1);
+	public static function componentNameToClass( name : String, isField = false ) {
+		var uname = name;
+		if( !isField )
+			uname = name.charAt(0).toUpperCase()+name.substr(1);
 		var parts = uname.split("-");
 		if( parts.length > 1 ) {
 			for( i in 1...parts.length )

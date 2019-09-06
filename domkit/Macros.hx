@@ -180,7 +180,7 @@ class Macros {
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
-					case RawValue(v): v;
+					case RawValue(v): MetaComponent.componentNameToClass(v,true);
 					default: continue;
 					}
 					var isArray = StringTools.endsWith(field,"[]");
