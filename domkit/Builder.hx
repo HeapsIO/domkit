@@ -1,6 +1,6 @@
 package domkit;
 
-class Builder<T> {
+class Builder<T:domkit.Model<T>> {
 
 	static var IS_EMPTY = ~/^[ \r\n\t]*$/;
 
@@ -15,19 +15,10 @@ class Builder<T> {
 		warnings.push(new Error(path.join(".")+": "+msg,pmin,pmax));
 	}
 
-	public function build( src : String, ?data : {} ) : Document<T> {
+	public function build( src : String, ?data : {} ) {
 		this.data = data;
 		var x = new MarkupParser().parse(src,"source",0);
-		var root = buildRec(x, null);
-		if( root == null )
-			return null;
-		return new Document(root);
-	}
-
-	function makeElement<T>( name : String, args : Array<Dynamic>, parent : Element<T> ) : Element<T> {
-		var comp = Component.get(name,true);
-		if( comp == null ) return null;
-		return new Element(comp.make(args, parent == null ? null : parent.obj), comp, parent);
+		return buildRec(x, null);
 	}
 
 	function evalArg( v : domkit.MarkupParser.AttributeValue, min : Int, max : Int ) : Dynamic {
@@ -47,11 +38,16 @@ class Builder<T> {
 		}
 	}
 
-	function buildRec( x : MarkupParser.Markup, parent : Element<T> ) : Element<T> {
-		var inst : Element<T> = null;
+	function makeDom( name : String, args : Array<Dynamic>, parent : Properties<T> ) : Properties<T> {
+		throw name;
+		return null;
+	}
+
+	function buildRec( x : MarkupParser.Markup, parent : Properties<T> ) : Properties<T> {
+		var inst = null;
 		switch( x.kind ) {
 		case Text(txt):
-			inst = makeElement("text",[],parent);
+			inst = makeDom("text",[],parent);
 			if( inst != null ) inst.setAttribute("text", VString(txt));
 		case Node(null):
 			var c = x.children[0];
@@ -63,7 +59,7 @@ class Builder<T> {
 		case Node(name):
 			path.push(name);
 			var args = [for( v in x.arguments ) evalArg(v.value, v.pmin, v.pmax)];
-			inst = makeElement(name, args, parent);
+			inst = makeDom(name, args, parent);
 			if( inst == null )
 				warn("Unknown component "+name, x.pmin, x.pmin + name.length);
 			var css = new CssParser();
