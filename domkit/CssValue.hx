@@ -63,13 +63,17 @@ class ValueParser {
 			var g = parseFloat(g);
 			var b = parseFloat(b);
 			var a = parseFloat(a);
-			return (Std.int(hxd.Math.clamp(r,0,1)*255) << 16)
-				| (Std.int(hxd.Math.clamp(g,0,1)*255) << 8)
-				| Std.int(hxd.Math.clamp(b,0,1)*255)
-				| (Std.int(hxd.Math.clamp(a,0,1)*255) << 24);
+			return (Std.int(clamp(r,0,1)*255) << 16)
+				| (Std.int(clamp(g,0,1)*255) << 8)
+				| Std.int(clamp(b,0,1)*255)
+				| (Std.int(clamp(a,0,1)*255) << 24);
 		default:
 			return invalidProp();
 		}
+	}
+
+	static inline function clamp(f:Float,min:Float,max:Float) {
+		return f < min ? min : (f > max ? max : f);
 	}
 
 	public function parseArray<T>( elt : CssValue -> T, v : CssValue ) : Array<T> {
