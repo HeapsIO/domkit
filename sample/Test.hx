@@ -24,20 +24,20 @@ class Test {
 		trace(o.color); // Blue
 		trace(o.paddingLeft); // 55
 		trace(o.sub.paddingLeft); // 0
-		trace( cast(o.document.root.children[0].obj,Components.TextComponent).text ); // "Hello World!"
+		trace( cast(o.getChildren()[0],Components.TextComponent).text ); // "Hello World!"
 
 		var css = new domkit.CssStyle();
 		css.add(new domkit.CssParser().parseSheet(sys.io.File.getContent("test.css")));
-		o.setStyle(css);
+		o.dom.applyStyle(css);
 
 		trace(o.sub.paddingLeft); // 50
 
-		var elt = o.document.get(o.sub);
+		var elt = o.sub.dom;
 		elt.addClass("over");
-		o.document.sync();
+		o.dom.applyStyle(css);
 		trace(o.sub.paddingLeft); // 60
 
-		trace(o.sub.maxWidth);
+		trace(o.sub.maxWidth); // null
 
 	}
 

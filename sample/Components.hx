@@ -1,9 +1,28 @@
 
 @:uiComp("base")
-class BaseComponent implements domkit.Object {
+class BaseComponent implements domkit.Model<BaseComponent> implements domkit.Object {
 
+	// these are minimal fields required by domkit.Model for all components
+	var children : Array<BaseComponent> = [];
+	public var dom : domkit.Properties<BaseComponent>;
+	public var parent : BaseComponent;
+	public function getChildren() return children;
+
+	// constructors should always take the parent component as optional last argument
 	public function new(?parent:BaseComponent) {
+		if( parent != null ) {
+			this.parent = parent;
+			parent.children.push(this);
+		}
 	}
+
+	public function remove() {
+		if( parent != null ) {
+			parent.children.remove(this);
+			parent = null;
+		}
+	}
+
 }
 
 enum Color {
