@@ -293,31 +293,38 @@ class Macros {
 		var isFirst = true;
 		while( csup != null ) {
 			var cl = csup.t.get();
-			if( cl.findField("document") != null ) {
+			if( cl.meta.has(":domkitDocument") ) {
 				isFirst = false;
 				break;
 			}
 			csup = cl.superClass;
 		}
+		cl.meta.add(":domkitDocument",[],cl.pos);
 
-		var found = false;
+		var found = null;
 		for( f in fields )
 			if( f.name == "new" ) {
 				switch( f.kind ) {
 				case FFun(f):
 					function replace( e : Expr ) {
 						switch( e.expr ) {
-						case ECall({ expr : EConst(CIdent("initComponent")) },[]): e.expr = initExpr.expr; found = true;
+						case ECall({ expr : EConst(CIdent("initComponent")) },[]): e.expr = initExpr.expr; found = e.pos;
 						default: haxe.macro.ExprTools.iter(e, replace);
 						}
 					}
 					replace(f.expr);
-					if( !found ) Context.error("Constructor missing initComponent() call", f.expr.pos);
+					if( found == null ) {
+						if( isFirst )
+							Context.error("Constructor missing initComponent() call", f.expr.pos);
+					} else {
+						if( !isFirst )
+							Context.error("Duplicate initComponent() call", found);
+					}
 					break;
 				default:
 				}
 			}
-		if( !found )
+		if( isFirst && found == null )
 			Context.error("Missing constructor", Context.currentPos());
 	}
 
