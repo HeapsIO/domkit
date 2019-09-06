@@ -188,7 +188,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			}
 		if( t == null )
 			error("Type required", f.pos);
-		var tt = haxe.macro.Context.resolveType(t, f.pos).follow();
+		var tt = haxe.macro.Context.resolveType(t, f.pos);
 		t = tt.toComplexType();
 
 		var prop = null;
@@ -316,6 +316,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				},
 				def : null,
 			};
+		case TType(_):
+			return parserFromType(t.follow(true), pos, mode);
 		default:
 		}
 		return null;
