@@ -289,6 +289,8 @@ class Macros {
 			}
 
 		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map() }, pos, true);
+
+		/*
 		var csup = cl.superClass;
 		var isFirst = true;
 		while( csup != null ) {
@@ -300,6 +302,7 @@ class Macros {
 			csup = cl.superClass;
 		}
 		cl.meta.add(":domkitDocument",[],cl.pos);
+		*/
 
 		var found = null;
 		for( f in fields )
@@ -308,23 +311,22 @@ class Macros {
 				case FFun(f):
 					function replace( e : Expr ) {
 						switch( e.expr ) {
-						case ECall({ expr : EConst(CIdent("initComponent")) },[]): e.expr = initExpr.expr; found = e.pos;
+						case ECall({ expr : EConst(CIdent("initComponent")) },[]):
+							// we don't generate an override initComponent method
+							// because it needs to access constructor variables - so we directly inline it
+							e.expr = initExpr.expr;
+							found = e.pos;
 						default: haxe.macro.ExprTools.iter(e, replace);
 						}
 					}
 					replace(f.expr);
-					if( found == null ) {
-						if( isFirst )
-							Context.error("Constructor missing initComponent() call", f.expr.pos);
-					} else {
-						if( !isFirst )
-							Context.error("Duplicate initComponent() call", found);
-					}
+					if( found == null )
+						Context.error("Constructor missing initComponent() call", f.expr.pos);
 					break;
 				default:
 				}
 			}
-		if( isFirst && found == null )
+		if( found == null )
 			Context.error("Missing constructor", Context.currentPos());
 	}
 
