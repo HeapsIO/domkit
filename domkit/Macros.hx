@@ -70,7 +70,9 @@ class Macros {
 			var path = p.split("$").join(uname);
 			var t = try Context.getType(path) catch( e : Dynamic ) continue;
 			switch( t.follow() ) {
-			case TInst(c,_): c.get(); // force build
+			case TInst(c,_):
+				if( p == "$" ) path = c.toString(); // if we found with unqualified name, requalify
+				c.get(); // force build
 			default:
 			}
 			var c = COMPONENTS.get(name);
