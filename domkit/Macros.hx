@@ -159,8 +159,9 @@ class Macros {
 						mc = cast(mc.parent, MetaComponent);
 					}
 					aexprs.push(macro var attrib = $e);
-					aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(eset,[macro cast tmp.obj,macro attrib]), pos : e.pos }), pos : e.pos });
-					aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},attrib));
+					var eattrib = { expr : EConst(CIdent("attrib")), pos : e.pos };
+					aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(eset,[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
+					aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
 				}
 			}
 			var attributes = avalues.length == 0 ? macro null : { expr : EObjectDecl([for( m in avalues ) { field : m.attr, expr : { expr : EConst(CString(m.value)), pos : pos } }]), pos : pos };
@@ -291,24 +292,26 @@ class Macros {
 			}
 
 		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map() }, pos, true);
+		var initFunc = "new";
 
-		/*
 		var csup = cl.superClass;
-		var isFirst = true;
 		while( csup != null ) {
 			var cl = csup.t.get();
-			if( cl.meta.has(":domkitDocument") ) {
-				isFirst = false;
-				break;
+			if( cl.meta.has(":uiInitFunction") ) {
+				for( m in cl.meta.get() )
+					if( m.name == ":uiInitFunction" && m.params.length == 1 ) {
+						switch( m.params[0].expr ) {
+						case EConst(CIdent(name)): initFunc = name;
+						default: Context.warning("Invalid @:uiInitFunction(funName)", m.pos);
+						}
+					}
 			}
 			csup = cl.superClass;
 		}
-		cl.meta.add(":domkitDocument",[],cl.pos);
-		*/
 
 		var found = null;
 		for( f in fields )
-			if( f.name == "new" ) {
+			if( f.name == initFunc ) {
 				switch( f.kind ) {
 				case FFun(f):
 					function replace( e : Expr ) {
@@ -323,13 +326,13 @@ class Macros {
 					}
 					replace(f.expr);
 					if( found == null )
-						Context.error("Constructor missing initComponent() call", f.expr.pos);
+						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
 				default:
 				}
 			}
 		if( found == null )
-			Context.error("Missing constructor", Context.currentPos());
+			Context.error("Missing function "+initFunc, Context.currentPos());
 	}
 
 	public static function buildObject() {
