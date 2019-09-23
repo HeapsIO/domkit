@@ -700,4 +700,26 @@ class CssParser {
 		}
 	}
 
+	/**
+	 * Convert from haxe identifier haxeCasing to css haxe-casing
+	 */
+	public static function haxeToCss( name : String ) {
+		// if fully uppercase, keep it this way
+		if( name.toUpperCase() == name )
+			return name.toLowerCase().split("_").join("-");
+
+		var out = new StringBuf();
+		for( i in 0...name.length ) {
+			var c = name.charCodeAt(i);
+			if( c >= "A".code && c <= "Z".code ) {
+				if( i > 0 ) out.addChar("-".code);
+				out.addChar(c - "A".code + "a".code);
+			} else if( c == "_".code )
+				out.addChar("-".code);
+			else
+				out.addChar(c);
+		}
+		return out.toString();
+	}
+
 }

@@ -231,7 +231,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			error("Invalid default expr", f.pos);
 		}
 
-		var h = addHandler(fieldToProp(f.name), prop.value, prop.def, t);
+		var h = addHandler(CssParser.haxeToCss(f.name), prop.value, prop.def, t);
 		h.position = f.pos;
 		h.fieldName = f.name;
 		h.parserExpr = prop.expr;
@@ -248,21 +248,6 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			uname = parts.join("");
 		}
 		return uname;
-	}
-
-	function fieldToProp( name : String ) {
-		if( name.toUpperCase() == name )
-			return name.toLowerCase();
-		var out = new StringBuf();
-		for( i in 0...name.length ) {
-			var c = name.charCodeAt(i);
-			if( c >= "A".code && c <= "Z".code ) {
-				if( i > 0 ) out.addChar("-".code);
-				out.addChar(c - "A".code + "a".code);
-			} else
-				out.addChar(c);
-		}
-		return out.toString().split("_").join("-");
 	}
 
 	function makeTypePath( t : BaseType ) {
@@ -368,7 +353,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			if( f.access.indexOf(AStatic) < 0 || !f.kind.match(FFun(_)) )
 				continue;
 			if( StringTools.startsWith(f.name,"set_") )
-				setters.set(fieldToProp(f.name.substr(4)), true);
+				setters.set(CssParser.haxeToCss(f.name.substr(4)), true);
 		}
 
 		var classPath = makeTypePath(classType);
