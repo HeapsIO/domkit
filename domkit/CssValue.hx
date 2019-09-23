@@ -45,6 +45,27 @@ class ValueParser {
 		}
 	}
 
+	static var CSS_COLORS = [
+		"maroon" => 0x800000,
+		"red" => 0xFF0000,
+		"orange" => 0xFFA500,
+		"yellow" => 0xFFFF00,
+		"olive" => 0x808000,
+		"green" => 0x008000,
+		"lime" => 0x00FF00,
+		"purple" => 0x800080,
+		"fuchsia" => 0xFF00FF,
+		"teal" => 0x008080,
+		"cyan" => 0x00FFFF,
+		"aqua" => 0x00FFFF,
+		"blue" => 0x0000FF,
+		"navy" => 0x000080,
+		"black" => 0x000000,
+		"gray" => 0x808080,
+		"silver" => 0xC0C0C0,
+		"white" => 0xFFFFFF,
+	];
+
 	public function parseColor( v : CssValue ) {
 		switch( v ) {
 		case VHex(h,color):
@@ -67,6 +88,10 @@ class ValueParser {
 				| (Std.int(clamp(g,0,1)*255) << 8)
 				| Std.int(clamp(b,0,1)*255)
 				| (Std.int(clamp(a,0,1)*255) << 24);
+		case VIdent(i):
+			var c = CSS_COLORS.get(i);
+			if( c == null ) invalidProp();
+			return c | 0xFF000000;
 		default:
 			return invalidProp();
 		}
