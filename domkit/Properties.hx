@@ -20,7 +20,7 @@ private class DirtyRef {
 class Properties<T:Model<T>> {
 
 	public var id(default,null) : String;
-	public var obj(default,null) : T;
+	public var obj(default,null) : Model<T>;
 	public var component(default,null) : Component<T,Dynamic>;
 	public var hover(default,set) : Bool = false;
 	public var active(default,set) : Bool = false;
@@ -58,7 +58,7 @@ class Properties<T:Model<T>> {
 	}
 
 	inline function get_parent() {
-		var p = obj.parent;
+		var p : Model<T> = obj.parent;
 		return p == null ? null : p.dom;
 	}
 
