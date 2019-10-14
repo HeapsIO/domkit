@@ -178,8 +178,11 @@ class Macros {
 						tmp.initAttributes($attributes);
 					},
 				];
-			} else
-				[macro var tmp = @:privateAccess domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes)];
+			} else {
+				var newExpr = macro domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes);
+				newExpr.pos = pos;
+				[macro var tmp = @:privateAccess $newExpr];
+			}
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
