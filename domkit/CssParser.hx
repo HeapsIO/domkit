@@ -30,11 +30,12 @@ enum abstract PseudoClass(Int) {
 
 	var None = 0;
 	var HOver = 1;
-	var FirstChild = 2;
-	var LastChild = 4;
-	var Odd = 8;
-	var Even = 16;
+	var FirstChild = 2 | 64;
+	var LastChild = 4 | 64;
+	var Odd = 8 | 64;
+	var Even = 16 | 64;
 	var Active = 32;
+	var NeedChildren = 64;
 
 	inline function new(v:Int) {
 		this = v;

@@ -166,16 +166,18 @@ class CssStyle {
 				return false;
 			if( c.pseudoClasses.has(Active) && !e.active )
 				return false;
-			var parent = e.obj.parent;
-			var parent = parent == null ? null : parent.dom;
-			if( parent != null ) {
-				if( c.pseudoClasses.has(FirstChild) && parent.children[0] != e )
+			if( c.pseudoClasses.has(NeedChildren) ) {
+				var parent = e.parent;
+				if( parent == null )
 					return false;
-				if( c.pseudoClasses.has(LastChild) && parent.children[parent.children.length - 1] != e )
+				var children = parent.obj.getChildren();
+				if( c.pseudoClasses.has(FirstChild) && children[0] != e.obj )
 					return false;
-				if( c.pseudoClasses.has(Odd) && parent.children.indexOf(e) & 1 == 0 )
+				if( c.pseudoClasses.has(LastChild) && children[children.length - 1] != e.obj )
 					return false;
-				if( c.pseudoClasses.has(Even) && parent.children.indexOf(e) & 1 != 0 )
+				if( c.pseudoClasses.has(Odd) && children.indexOf(e.obj) & 1 == 0 )
+					return false;
+				if( c.pseudoClasses.has(Even) && children.indexOf(e.obj) & 1 != 0 )
 					return false;
 			}
 		}
