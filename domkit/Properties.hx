@@ -57,9 +57,9 @@ class Properties<T:Model<T>> {
 				c.dom.onParentChanged();
 	}
 
-	inline function get_parent() {
-		var p : Model<T> = obj.parent;
-		return p == null ? null : p.dom;
+	inline function get_parent() : Properties<T> {
+		var p = obj.parent;
+		return p == null ? null : cast p.dom;
 	}
 
 	public function addClass( c : String ) {
@@ -215,9 +215,9 @@ class Properties<T:Model<T>> {
 	static function createNew<T:Model<T>>( comp : String, parent : Properties<T>, args : Array<Dynamic>, ?attributes : haxe.DynamicAccess<String> ) : Properties<T> {
 		var c = Component.get(comp);
 		var value : T = c.make(args, parent.obj);
-		var p = value.dom;
+		var p : Properties<T> = cast value.dom;
 		if( p == null )
-			value.dom = p = new Properties<T>(value, cast c);
+			value.dom = cast (p = new Properties<T>(value, cast c));
 		if( attributes != null )
 			p.initAttributes(attributes);
 		return p;
