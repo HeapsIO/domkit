@@ -236,12 +236,7 @@ class Macros {
 			};
 		case CodeBlock(expr):
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
-			switch( expr.expr ) {
-			case EConst(CIdent(v)):
-				return macro domkit.Element.create("object",null,tmp,$i{v});
-			default:
-				replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
-			}
+			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
 			return expr;
 		case Macro(id):
 			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
