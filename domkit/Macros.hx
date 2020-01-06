@@ -8,6 +8,7 @@ using haxe.macro.Tools;
 typedef ComponentData = {
 	var declaredIds : Map<String,Bool>;
 	var fields : Array<haxe.macro.Expr.Field>;
+	var inits : Array<Expr>;
 }
 
 #end
@@ -208,8 +209,9 @@ class Macros {
 								name : field,
 								access : [access],
 								pos : makePos(pos, a.pmin, a.pmax),
-								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), macro []),
+								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), null),
 							});
+							data.inits.push(macro this.$field = []);
 						}
 					} else {
 						exprs.push(macro this.$field = cast tmp.obj);
@@ -289,7 +291,12 @@ class Macros {
 			default: throw "assert";
 			}
 
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map() }, pos, true);
+		var inits = [];
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits }, pos, true);
+		if( inits.length > 0 ) {
+			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
+			initExpr.expr = EBlock(inits);
+		}
 		var initFunc = "new";
 
 		var csup = cl.superClass;
