@@ -117,8 +117,19 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var args = f.args.copy();
 			args.pop(); // parent
 			for( a in args ) {
-				if( a.type == null && a.value != null )
-					a.type = haxe.macro.Context.typeof(a.value).toComplexType();
+				if( a.type == null && a.value != null ) {
+					switch a.value.expr {
+					case EConst(c):
+						switch c {
+						case CInt(_): a.type = TPath({ name : "Int", pack : [] });
+						case CFloat(_): a.type = TPath({ name : "Float", pack : [] });
+						case CString(_): a.type = TPath({ name : "String", pack : [] });
+						case CIdent("true" | "false"): a.type = TPath({ name : "Bool", pack : [] });
+						default:
+						}
+					default:
+					}
+				}
 				if( a.type == null )
 					error("Missing explicit type for constructor argument "+a.name, f.expr.pos);
 			}
