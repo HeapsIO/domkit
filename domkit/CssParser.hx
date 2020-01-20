@@ -78,6 +78,7 @@ class CssParser {
 
 	var spacesTokens : Bool;
 	var tokens : Array<Token>;
+	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 
 	public function new() {
@@ -201,6 +202,7 @@ class CssParser {
 		pos = 0;
 		tokens = [];
 		warnings = [];
+		warnedComponents = new Map();
 		var rules : CssSheet = [];
 		while( true ) {
 			if( isToken(TEof) )
@@ -208,6 +210,13 @@ class CssParser {
 			var classes = readClasses();
 			expect(TBrOpen);
 			rules.push({ classes : classes, style : parseStyle(TBrClose) });
+			// removed unused components rules
+			for( c in classes.copy() )
+				if( c.className == "@" ) {
+					classes.remove(c);
+					if( classes.length == 0 )
+						rules.pop();
+				}
 		}
 		return rules;
 	}
@@ -267,8 +276,14 @@ class CssParser {
 					#else
 					var comp = Component.get(i,true);
 					#end
-					if( comp == null ) error("Unknown component "+i);
-					c.component = comp;
+					if( comp == null ) {
+						if( !warnedComponents.exists(i) ) {
+							warnedComponents.set(i, true);
+							warnings.push({ pmin : p, pmax : pos, msg : "Unknown component "+i });
+						}
+						c.className = "@"; // prevent it to be applied
+					} else
+						c.component = comp;
 					def = true;
 				case TSpaces:
 					return def ? readClass(c) : null;
