@@ -149,12 +149,30 @@ class CssStyle {
 					c = c.parent;
 				}
 				var priority = (nids << 16) | (nothers << 8) | nnodes;
+				var important = null;
 				var rule = new Rule();
 				rule.id = rules.length;
 				rule.cl = cl;
-				rule.style = [for( s in r.style ) new RuleStyle(s.p,s.value)];
+				rule.style = [];
+				for( s in r.style )
+					switch( s.value ) {
+					case VLabel("important", val):
+						if( important == null ) important = [];
+						important.push(new RuleStyle(s.p,val));
+					default:
+						rule.style.push(new RuleStyle(s.p,s.value));
+					}
 				rule.priority = priority;
-				rules.push(rule);
+				if( rule.style.length > 0 )
+					rules.push(rule);
+				if( important != null ) {
+					var rule = new Rule();
+					rule.id = rules.length;
+					rule.cl = cl;
+					rule.style = important;
+					rule.priority = priority + (1 << 24);
+					rules.push(rule);
+				}
 			}
 		}
 		needSort = true;
