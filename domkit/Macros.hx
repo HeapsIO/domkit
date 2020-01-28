@@ -159,10 +159,17 @@ class Macros {
 						if( eset != null || mc.parent == null ) break;
 						mc = cast(mc.parent, MetaComponent);
 					}
-					aexprs.push(macro var attrib = $e);
-					var eattrib = { expr : EConst(CIdent("attrib")), pos : e.pos };
-					aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(eset,[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
-					aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+					if( eset == null ) {
+						if( p.name == "class" ) {
+							aexprs.push(macro tmp.setClasses($e));
+						} else
+							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
+					} else {
+						aexprs.push(macro var __attrib = $e);
+						var eattrib = { expr : EConst(CIdent("__attrib")), pos : e.pos };
+						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(eset,[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
+						aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+					}
 				}
 			}
 			var attributes = avalues.length == 0 ? macro null : { expr : EObjectDecl([for( m in avalues ) { field : m.attr, expr : { expr : EConst(CString(m.value)), pos : pos } }]), pos : pos };

@@ -141,6 +141,17 @@ class Properties<T:Model<T>> {
 		}
 	}
 
+	public function setClasses( cl : String ) {
+		var cl = cl.split(" ");
+		classes = [];
+		for( c in cl ) {
+			var c = StringTools.trim(c);
+			if( c.length == 0 ) continue;
+			classes.push(c);
+		}
+		needRefresh();
+	}
+
 	public function setAttribute( p : String, value : CssValue ) : SetAttributeResult {
 		var p = Property.get(p,false);
 		if( p == null )
