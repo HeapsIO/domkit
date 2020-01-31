@@ -425,7 +425,9 @@ class CssParser {
 				case "url":
 					readValueNext(VCall("url",[VString(readUrl())]));
 				default:
-					var args = switch( readValue() ) {
+					var v = readValue(true);
+					var args = switch( v ) {
+					case null: [];
 					case VList(l): l;
 					case x: [x];
 					}
