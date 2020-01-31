@@ -148,6 +148,13 @@ class ValueParser {
 		}
 	}
 
+	public function parseFloatPercent( v : CssValue ) : Float {
+		return switch( v ) {
+		case VUnit(v,"%"): v / 100;
+		default: parseFloat(v);
+		}
+	}
+
 	public function parseXY( v : CssValue ) {
 		return switch( v ) {
 		case VGroup([x,y]): { x : parseFloat(x), y : parseFloat(y) };
