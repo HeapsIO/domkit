@@ -169,9 +169,12 @@ class Properties<T:Model<T>> {
 			return Ok;
 		}
 		if( p.id == pclass.id ) {
+			// keep previous classes !! (declaring component <xxx class="foo"/> should not erase previous classes)
+			if( classes == null )
+				classes = [];
 			switch( value ) {
-			case VIdent(i): classes = [i];
-			case VGroup(vl): classes = [for( v in vl ) switch( v ) { case VIdent(i): i; default: return InvalidValue(); }];
+			case VIdent(i): classes.push(i);
+			case VGroup(vl): for( v in vl ) switch( v ) { case VIdent(i): classes.push(i); default: return InvalidValue(); }
 			default: return InvalidValue();
 			}
 			needRefresh();
