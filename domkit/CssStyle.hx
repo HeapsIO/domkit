@@ -76,6 +76,7 @@ class CssStyle {
 				else {
 					changed = true;
 					e.currentSet.remove(p);
+					if( e.currentValues != null ) e.currentValues.splice(i+1,1);
 					var h = e.component.getHandler(p);
 					h.apply(e.obj,h.defaultValue);
 				}
@@ -104,6 +105,10 @@ class CssStyle {
 					h.apply(e.obj, p.lastValue);
 					changed = true;
 					if( pr.tag != ntag ) {
+						if( Properties.KEEP_VALUES ) {
+							e.initCurrentValues();
+							e.currentValues.push(p.value);
+						}
 						e.currentSet.push(pr);
 						pr.tag = ntag;
 					}

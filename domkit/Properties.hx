@@ -29,8 +29,11 @@ class Properties<T:Model<T>> {
 	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
+	var currentValues : Array<CssValue>; // only for inspector
 	var needStyleRefresh : Bool = true;
 	var dirty : DirtyRef;
+
+	static var KEEP_VALUES = false;
 
 	public function new(obj,component) {
 		this.obj = obj;
@@ -203,12 +206,27 @@ class Properties<T:Model<T>> {
 			for( s in currentSet )
 				if( s == p ) {
 					found = true;
+					if( KEEP_VALUES ) {
+						initCurrentValues();
+						currentValues[currentSet.indexOf(p)] = value;
+					}
 					break;
 				}
-			if( !found ) currentSet.push(p);
+			if( !found ) {
+				if( KEEP_VALUES ) {
+					initCurrentValues();
+					currentValues.push(value);
+				}
+				currentSet.push(p);
+			}
 		}
 		handler.apply(obj,v);
 		return Ok;
+	}
+
+	function initCurrentValues() {
+		if( currentValues == null )
+			currentValues = [for( s in currentSet ) null];
 	}
 
 	static var pclass = Property.get("class");
