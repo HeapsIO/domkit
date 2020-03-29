@@ -9,6 +9,7 @@ typedef ComponentData = {
 	var declaredIds : Map<String,Bool>;
 	var fields : Array<haxe.macro.Expr.Field>;
 	var inits : Array<Expr>;
+	var hasContent : Bool;
 }
 
 #end
@@ -130,7 +131,12 @@ class Macros {
 
 			var avalues = [];
 			var aexprs = [];
+			var isContent = false;
 			for( attr in m.attributes ) {
+				if( attr.name == "__content__" ) {
+					isContent = true;
+					continue;
+				}
 				var p = Property.get(attr.name, false);
 				if( p == null ) {
 					error("Unknown property "+attr.name, attr.pmin, attr.pmin + attr.name.length);
@@ -176,6 +182,7 @@ class Macros {
 			var ct = comp.baseType;
 			var exprs : Array<Expr> = if( isRoot ) {
 				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
+				var initAttr = attributes == null ? macro null : macro tmp.initAttributes($attributes);
 				[
 					(macro var tmp : domkit.Properties<$componentsType> = this.dom),
 					macro if( tmp == null ) {
@@ -183,13 +190,17 @@ class Macros {
 						this.dom = tmp;
 					} else {
 						@:privateAccess tmp.component = cast domkit.Component.get($v{name});
-						tmp.initAttributes($attributes);
+						$initAttr;
 					},
 				];
 			} else {
 				var newExpr = macro domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes);
 				newExpr.pos = pos;
 				[macro var tmp = @:privateAccess $newExpr];
+			}
+			if( isContent ) {
+				exprs.push(macro __contentRoot = tmp);
+				data.hasContent = true;
 			}
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
@@ -235,6 +246,10 @@ class Macros {
 			for( c in m.children ) {
 				var e = buildComponentsInit(c, data, pos);
 				if( e != null ) exprs.push(e);
+			}
+			if( isRoot && data.hasContent ) {
+				exprs.unshift(macro var __contentRoot);
+				exprs.push(macro @:privateAccess dom.rootContent = __contentRoot.rootContent);
 			}
 			return macro $b{exprs};
 		case Text(text):
@@ -299,7 +314,7 @@ class Macros {
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits }, pos, true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false }, pos, true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);

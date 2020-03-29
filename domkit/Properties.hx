@@ -25,6 +25,7 @@ class Properties<T:Model<T>> {
 	public var hover(default,set) : Bool = false;
 	public var active(default,set) : Bool = false;
 	public var parent(get,never) : Properties<T>;
+	public var rootContent(default,null) : Model<T>;
 
 	var classes : Array<String>;
 	var style : Array<{ p : Property, value : Any }> = [];
@@ -38,6 +39,7 @@ class Properties<T:Model<T>> {
 	public function new(obj,component) {
 		this.obj = obj;
 		this.component = component;
+		this.rootContent = obj;
 		onParentChanged();
 		dirty.mark();
 	}
@@ -246,7 +248,7 @@ class Properties<T:Model<T>> {
 
 	static function createNew<T:Model<T>>( comp : String, parent : Properties<T>, args : Array<Dynamic>, ?attributes : haxe.DynamicAccess<String> ) : Properties<T> {
 		var c = Component.get(comp);
-		var value : T = c.make(args, parent.obj);
+		var value : T = c.make(args, parent.rootContent);
 		var p : Properties<T> = cast value.dom;
 		if( p == null )
 			value.dom = cast (p = new Properties<T>(value, cast c));
