@@ -404,7 +404,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		var fields = (macro class {
 			var parser : $parserType;
 			function new() {
-				super($v{this.name},@:privateAccess $newExpr,$parentExpr,$v{hasDocument});
+				super($v{this.name},@:privateAccess $newExpr,$parentExpr);
 				parser = new $parserClass();
 				$b{handlers};
 			}

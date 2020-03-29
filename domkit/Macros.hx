@@ -305,17 +305,27 @@ class Macros {
 			initExpr.expr = EBlock(inits);
 		}
 		var initFunc = "new";
+		var initArgs = null;
 
 		var csup = cl.superClass;
 		while( csup != null ) {
 			var cl = csup.t.get();
-			if( cl.meta.has(":uiInitFunction") ) {
+			if( cl.meta.has(":uiInitFunction") || (initArgs == null && cl.meta.has(":domkitInitArgs")) ) {
 				for( m in cl.meta.get() )
-					if( m.name == ":uiInitFunction" && m.params.length == 1 ) {
+					switch( m.name ) {
+					case ":uiInitFunction" if( m.params.length == 1 ):
 						switch( m.params[0].expr ) {
 						case EConst(CIdent(name)): initFunc = name;
 						default: Context.warning("Invalid @:uiInitFunction(funName)", m.pos);
 						}
+					case ":domkitInitArgs" if( initArgs == null ):
+						switch( m.params[0].expr ) {
+						case ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields))
+						   | EParenthesis({ expr : ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields)) }):
+						   if( name == initFunc ) initArgs = fields;
+						default: throw "assert";
+						}
+					default:
 					}
 			}
 			csup = cl.superClass;
@@ -337,14 +347,45 @@ class Macros {
 						}
 					}
 					replace(f.expr);
+					var ct : ComplexType = TAnonymous([for( a in f.args ) {
+						name : a.name,
+						kind : FVar(a.type,a.value),
+						pos : cl.pos,
+						meta : a.opt ? [{name:":optional",pos:cl.pos}] : null }
+					]);
+					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],cl.pos);
 					if( found == null )
 						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
 				default:
 				}
 			}
-		if( found == null )
-			Context.error("Missing function "+initFunc, Context.currentPos());
+		if( found != null )
+			return;
+		if( initArgs == null ) {
+			if( initFunc == "new" )
+				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:cl.pos}], pos : cl.pos }];
+			else {
+				Context.error("Missing function "+initFunc, Context.currentPos());
+				return;
+			}
+		}
+		var anames = [for( a in initArgs ) macro $i{a.name}];
+		fields.push({
+			name : initFunc,
+			pos : cl.pos,
+			kind : FFun({
+				ret : null,
+				args : [for( a in initArgs) {
+					name : a.name,
+					type : switch( a.kind ) { case FVar(t,_): t; default: throw "assert"; },
+					value : switch( a.kind ) { case FVar(_,e): e; default: throw "assert"; },
+					opt : a.meta.length == 1,
+				}],
+				expr : macro { super($a{anames}); $initExpr; }
+			}),
+			access: [APublic],
+		});
 	}
 
 	public static function buildObject() {
@@ -383,7 +424,6 @@ class Macros {
 		if( isComp ) {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
-				m.hasDocument = hasDocument != null;
 				if( componentsType == null ) componentsType = m.baseType;
 				Context.defineType(m.buildRuntimeComponent(componentsType,fields));
 				var t = m.getRuntimeComponentType();
@@ -406,6 +446,8 @@ class Macros {
 				Context.error(e.message, makePos(hasDocument.pos,e.pmin,e.pmax));
 			}
 			fields.remove(hasDocument.f);
+		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
+			buildDocument(cl, '<$foundComp></$foundComp>', cl.pos, fields, foundComp);
 		}
 		if( foundComp != null )
 			RESOLVED_COMPONENTS.remove(foundComp);

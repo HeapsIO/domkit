@@ -36,14 +36,12 @@ class Component<BaseT,T> {
 	public var name : String;
 	public var make : Array<Dynamic> -> BaseT -> T;
 	public var parent : Component<BaseT,Dynamic>;
-	public var hasDocument : Bool;
 	var propsHandler : Array<PropertyHandler<T,Dynamic>>;
 
-	public function new(name, make, parent, ?hasDocument) {
+	public function new(name, make, parent) {
 		this.name = name;
 		this.make = make;
 		this.parent = parent;
-		this.hasDocument = hasDocument;
 		propsHandler = parent == null ? [] : cast parent.propsHandler.copy();
 		COMPONENTS.set(name, this);
 	}
