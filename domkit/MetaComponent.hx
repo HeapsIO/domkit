@@ -401,11 +401,13 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		case TPath(t): t;
 		default: throw "assert";
 		}
+		var forceInit = parent == null || parserType != cast(parent,MetaComponent).parserType;
+		var initParser = if( forceInit ) macro parser = new $parserClass() else macro parser = @:privateAccess $parentExpr.parser;
 		var fields = (macro class {
 			var parser : $parserType;
 			function new() {
 				super($v{this.name},@:privateAccess $newExpr,$parentExpr);
-				parser = new $parserClass();
+				$initParser;
 				$b{handlers};
 			}
 			@:keep static var inst = new domkit.$cname();

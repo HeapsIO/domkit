@@ -182,7 +182,7 @@ class Macros {
 			var ct = comp.baseType;
 			var exprs : Array<Expr> = if( isRoot ) {
 				var baseCheck = { expr : ECheckType(macro this,ct), pos : Context.currentPos() };
-				var initAttr = attributes == null ? macro null : macro tmp.initAttributes($attributes);
+				var initAttr = attributes.expr.match(EConst(CIdent("null"))) ? macro null : macro tmp.initAttributes($attributes);
 				[
 					(macro var tmp : domkit.Properties<$componentsType> = this.dom),
 					macro if( tmp == null ) {

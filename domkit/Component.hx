@@ -42,7 +42,7 @@ class Component<BaseT,T> {
 		this.name = name;
 		this.make = make;
 		this.parent = parent;
-		propsHandler = parent == null ? [] : cast parent.propsHandler.copy();
+		propsHandler = parent == null ? [] : cast parent.propsHandler;
 		COMPONENTS.set(name, this);
 	}
 
@@ -61,6 +61,7 @@ class Component<BaseT,T> {
 
 	function addHandler<P>( p : String, parser : CssValue -> P, def : #if macro haxe.macro.Expr #else P #end, applyType : #if macro haxe.macro.Expr.ComplexType #else T -> P -> Void #end ) {
 		var ph = new PropertyHandler(parser,def,applyType);
+		if( parent != null && propsHandler == cast parent.propsHandler ) propsHandler = propsHandler.copy();
 		propsHandler[Property.get(p).id] = ph;
 		return ph;
 	}
