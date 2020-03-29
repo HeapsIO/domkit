@@ -184,6 +184,8 @@ class CssStyle {
 	}
 
 	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
+		if( c.id != null && c.id != e.id )
+			return false;
 		if( c.pseudoClasses != None ) {
 			if( c.pseudoClasses.has(HOver) && !e.hover )
 				return false;
@@ -204,6 +206,8 @@ class CssStyle {
 					return false;
 			}
 		}
+		if( c.component != null && !e.component.isOfType(c.component) )
+			return false;
 		if( c.className != null ) {
 			if( e.classes == null )
 				return false;
@@ -228,10 +232,6 @@ class CssStyle {
 				}
 			}
 		}
-		if( c.component != null && c.component != e.component )
-			return false;
-		if( c.id != null && c.id != e.id )
-			return false;
 		if( c.parent != null ) {
 			var p = e.parent;
 			switch( c.relation ) {

@@ -52,6 +52,15 @@ class Component<BaseT,T> {
 		return cast propsHandler[p.id];
 	}
 
+	public function isOfType( c : Component<BaseT,T> ) {
+		var me = this;
+		do {
+			if( me == c ) return true;
+			me = cast me.parent;
+			if( me == null ) return false;
+		} while( true );
+	}
+
 	function addHandler<P>( p : String, parser : CssValue -> P, def : #if macro haxe.macro.Expr #else P #end, applyType : #if macro haxe.macro.Expr.ComplexType #else T -> P -> Void #end ) {
 		var ph = new PropertyHandler(parser,def,applyType);
 		propsHandler[Property.get(p).id] = ph;
