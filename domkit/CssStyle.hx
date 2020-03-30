@@ -142,7 +142,14 @@ class CssStyle {
 				var c = cl;
 				while( c != null ) {
 					if( c.id != null ) nids++;
-					if( c.component != null ) nnodes++;
+					if( c.component != null ) {
+						nnodes += 32;
+						var k = c.component.parent;
+						while( k != null ) {
+							nnodes++;
+							k = k.parent;
+						}
+					}
 					if( c.pseudoClasses != None ) {
 						var i = c.pseudoClasses.toInt();
 						while( i != 0 ) {
@@ -153,7 +160,7 @@ class CssStyle {
 					if( c.className != null ) nothers++;
 					c = c.parent;
 				}
-				var priority = (nids << 16) | (nothers << 8) | nnodes;
+				var priority = (nids << 24) | (nothers << 17) | nnodes;
 				var important = null;
 				var rule = new Rule();
 				rule.id = rules.length;
@@ -175,7 +182,7 @@ class CssStyle {
 					rule.id = rules.length;
 					rule.cl = cl;
 					rule.style = important;
-					rule.priority = priority + (1 << 24);
+					rule.priority = priority + (1 << 30);
 					rules.push(rule);
 				}
 			}
