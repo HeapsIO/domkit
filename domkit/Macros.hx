@@ -251,7 +251,7 @@ class Macros {
 			}
 			if( isRoot && data.hasContent ) {
 				exprs.unshift(macro var __contentRoot);
-				exprs.push(macro @:privateAccess dom.rootContent = __contentRoot.rootContent);
+				exprs.push(macro @:privateAccess dom.contentRoot = __contentRoot.contentRoot);
 			}
 			return macro $b{exprs};
 		case Text(text):
