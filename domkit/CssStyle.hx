@@ -111,6 +111,11 @@ class CssStyle {
 						}
 						e.currentSet.push(pr);
 						pr.tag = ntag;
+					} else {
+						if( Properties.KEEP_VALUES ) {
+							e.initCurrentValues();
+							e.currentValues[e.currentSet.indexOf(pr)] = p.value;
+						}
 					}
 				}
 				var n = r.next;
