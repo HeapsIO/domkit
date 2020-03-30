@@ -103,6 +103,8 @@ class Macros {
 				if( m.arguments.length > 0 )
 					error("Arguments should be passed in super constructor", m.pmin, m.pmax);
 			} else {
+				if( args == null )
+					error('Component $name is a @:uiRootComponent and is not constructible', m.pmin, m.pmax);
 				if( m.arguments.length > args.length )
 					error("Component requires "+args.length+" arguments ("+[for( a in args ) a.name].join(", ")+")", m.pmin, m.pmin + name.length);
 				for( i in 0...args.length ) {
@@ -309,7 +311,7 @@ class Macros {
 
 		if( rootName != null )
 			switch( root.kind ) {
-			case Node(n): if( n != rootName ) Context.error("Root element shoud be "+rootName, pos);
+			case Node(n): if( n != rootName ) Context.error("Root element should be "+rootName, pos);
 			default: throw "assert";
 			}
 
@@ -434,7 +436,7 @@ class Macros {
 						hasMeta = m.pos;
 		}
 
-		var isComp = cl.meta.has(":uiComp");
+		var isComp = !cl.meta.has(":uiNoComponent");
 		var foundComp = null;
 		if( isComp ) {
 			try {
@@ -452,7 +454,7 @@ class Macros {
 				Context.error(e.message, e.position);
 			}
 		} else if( hasMeta != null )
-			Context.error("@:p not allowed without @:uiComp", hasMeta);
+			Context.error("@:p not allowed with @:uiNoComponent", hasMeta);
 
 		if( hasDocument != null ) {
 			try {

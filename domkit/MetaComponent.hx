@@ -36,7 +36,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 		var c = classType;
 		var name = getCompName(c);
-		if( name == null ) error("Missing :uiComp", c.pos);
+		if( name == null ) throw "assert";
 
 		var ccur = c;
 		var metaParent = null;
@@ -45,7 +45,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var csup = ccur.superClass.t.get();
 			var cname = getCompName(csup);
 			if( cname != null ) {
-				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0) catch( e : Error ) null;
+				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0) catch( e : domkit.Error ) null catch( e : Error ) null;
 				if( metaParent == null ) error("Missing super component registration "+cname, c.pos);
 				break;
 			}
@@ -81,10 +81,16 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			if( f.name == "create" && f.access.indexOf(AStatic) >= 0 )
 				fconstr = f;
 		}
-		initConstructor(fconstr);
+		var isRootComp = classType.meta.has(":uiRootComponent");
+		if( !isRootComp && metaParent != null && metaParent.constructorPath == null )
+			isRootComp = true;
+		if( !isRootComp )
+			initConstructor(fconstr);
 	}
 
 	public function getConstructorArgs() {
+		if( constructorPath == null )
+			return null;
 		var p = this;
 		while( p != null ) {
 			if( p.constructorArgs != null )
@@ -323,7 +329,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 	function getCompName( c : ClassType ) {
 		var name = c.meta.extract(":uiComp")[0];
-		if( name == null ) return null;
+		if( name == null ) return c.meta.has(":uiNoComponent") ? null : CssParser.haxeToCss(c.name);
 		if( name.params.length == 0 ) error("Invalid :uiComp", name.pos);
 		return switch( name.params[0].expr ) {
 		case EConst(CString(name)): name;
@@ -368,18 +374,22 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		}
 
 		var classPath = makeTypePath(classType);
-		var newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, classType.pos);
+		var newExpr;
 		var cargs = getConstructorArgs();
-		if( cargs.length == 0 )
-			newExpr = macro function(_,parent) return ($newExpr)(parent);
-		else {
-			var eargs = [];
-			for( i in 0...cargs.length )
-				eargs.push(macro args[$v{i}]);
-			eargs.push(macro parent);
-			newExpr = macro function(args,parent) return ($newExpr)($a{eargs});
-		}
-		setPosRec(newExpr, classType.pos);
+		if( cargs != null ) {
+			newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, classType.pos);
+			if( cargs.length == 0 )
+				newExpr = macro function(_,parent) return ($newExpr)(parent);
+			else {
+				var eargs = [];
+				for( i in 0...cargs.length )
+					eargs.push(macro args[$v{i}]);
+				eargs.push(macro parent);
+				newExpr = macro function(args,parent) return ($newExpr)($a{eargs});
+			}
+			setPosRec(newExpr, classType.pos);
+		} else
+			newExpr = macro function(args,parent) throw $v{cname+" cannot be constructed"};
 
 		var handlers = [];
 		for( i in 0...propsHandler.length ) {
