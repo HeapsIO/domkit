@@ -84,13 +84,13 @@ class ValueParser {
 			}
 			return color | 0xFF000000;
 		case VCall("rgba", [r,g,b,a]):
-			var r = parseFloat(r);
-			var g = parseFloat(g);
-			var b = parseFloat(b);
+			var r = parseInt(r);
+			var g = parseInt(g);
+			var b = parseInt(b);
 			var a = parseFloat(a);
-			return (Std.int(clamp(r,0,1)*255) << 16)
-				| (Std.int(clamp(g,0,1)*255) << 8)
-				| Std.int(clamp(b,0,1)*255)
+			return (Std.int(clamp(r,0,255)) << 16)
+				| (Std.int(clamp(g,0,255)) << 8)
+				| Std.int(clamp(b,0,255))
 				| (Std.int(clamp(a,0,1)*255) << 24);
 		case VIdent(i):
 			var c = CSS_COLORS.get(i);
