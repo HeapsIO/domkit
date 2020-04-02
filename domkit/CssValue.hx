@@ -25,10 +25,6 @@ class ValueParser {
 		throw new InvalidProperty(msg);
 	}
 
-	public function parseNull( v : CssValue ) : Dynamic {
-		return invalidProp();
-	}
-
 	public function parseIdent( v : CssValue ) {
 		return switch( v ) { case VIdent(v): v; default: invalidProp(); }
 	}

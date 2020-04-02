@@ -140,13 +140,25 @@ class Macros {
 					continue;
 				}
 				var p = Property.get(attr.name, false);
-				if( p == null ) {
-					error("Unknown property "+attr.name, attr.pmin, attr.pmin + attr.name.length);
-					continue;
-				}
-				var h = comp.getHandler(p);
+				var h = p == null ? null : comp.getHandler(p);
 				if( h == null ) {
-					error("Component "+comp.name+" does not handle property "+p.name, attr.pmin, attr.pmin + attr.name.length);
+					switch( attr.value ) {
+					case Code(e):
+						var field = attr.name;
+						var fpos = makePos(e.pos, attr.pmin, attr.pmin + attr.name.length);
+						if( isRoot )
+							aexprs.push({ expr : EBinop(OpAssign,{ expr : EField(macro this,field), pos : fpos },e), pos : fpos });
+						else {
+							var ct = Std.downcast(comp, MetaComponent).baseType;
+							var expr = { expr : EBinop(OpAssign,{ expr : EField(macro (cast tmp.obj : $ct),field), pos : fpos },e), pos : fpos };
+							aexprs.push(expr);
+						}
+					default:
+						if( p == null )
+							error("Unknown property "+attr.name, attr.pmin, attr.pmin + attr.name.length);
+						else
+							error("Component "+comp.name+" does not handle property "+p.name, attr.pmin, attr.pmin + attr.name.length);
+					}
 					continue;
 				}
 				switch( attr.value ) {
@@ -160,7 +172,7 @@ class Macros {
 					}
 					avalues.push({ attr : attr.name, value : aval });
 				case Code(e):
-					var mc = Std.instance(comp, MetaComponent);
+					var mc = Std.downcast(comp, MetaComponent);
 					var eset = null;
 					while( mc != null ) {
 						eset = mc.setExprs.get(p.name);
