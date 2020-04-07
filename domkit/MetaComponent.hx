@@ -139,7 +139,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				if( a.type == null )
 					error("Missing explicit type for constructor argument "+a.name, f.expr.pos);
 			}
-			constructorArgs = args;
+			constructorArgs = [for( a in args ) {
+				name : a.name,
+				opt : a.opt,
+				type : haxe.macro.Context.resolveType(a.type, f.expr.pos).toComplexType()
+			}];
 		default:
 			error("Create method is not a function", f.pos);
 		}
