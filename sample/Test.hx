@@ -1,15 +1,17 @@
 import domkit.Builder;
 
-class Obj extends Components.MydivComponent implements domkit.Object {
+class Obj extends Components.MydivComponent {
 
 	static var SRC =
-	<mydiv class="foo" padding-left="$value" color="blue">
+	<obj class="foo" padding-left={value} color="blue">
 		@exampleText("!")
 		<custom(55) public id="sub" custom-color="#ff0 0.5" active/>
-	</mydiv>
+		<custom(66) if( anotherCustom )/>
+	</obj>
 
-	public function new(value,?parent) {
+	public function new(value:Int,?parent) {
 		super(parent);
+		var anotherCustom = false;
 		initComponent(); // create the component tree
 	}
 

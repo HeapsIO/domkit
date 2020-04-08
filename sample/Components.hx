@@ -14,6 +14,7 @@ class BaseComponent implements domkit.Model<BaseComponent> implements domkit.Obj
 			this.parent = parent;
 			parent.children.push(this);
 		}
+		initComponent();
 	}
 
 	public function remove() {

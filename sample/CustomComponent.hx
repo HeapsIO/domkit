@@ -7,6 +7,7 @@ class CustomComponent extends Components.MydivComponent {
 
 	public function new( value : Int, parent ) {
 		super(parent);
+		initComponent();
 	}
 
 	function set_maxWidth(v: Null<Int>) {
