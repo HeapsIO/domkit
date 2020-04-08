@@ -100,6 +100,8 @@ class Macros {
 			if( m.attributes == null ) m.attributes = [];
 			if( m.children == null ) m.children = [];
 			if( isRoot ) {
+				if( m.condition != null )
+					error("Cannot have a condition on root element", m.condition.pmin, m.condition.pmax);
 				if( m.arguments.length > 0 )
 					error("Arguments should be passed in super constructor", m.pmin, m.pmax);
 			} else {
@@ -265,6 +267,8 @@ class Macros {
 				exprs.unshift(macro var __contentRoot);
 				exprs.push(macro @:privateAccess dom.contentRoot = __contentRoot.contentRoot);
 			}
+			if( m.condition != null )
+				return macro if( ${m.condition.cond} ) $b{exprs};
 			return macro $b{exprs};
 		case Text(text):
 			var c = loadComponent("text",m.pmin, m.pmax);

@@ -28,6 +28,7 @@ enum abstract MToken(Int) {
 	var ESCAPE;
 	var ARGS;
 	var MACRO_ID;
+	var IF_COND;
 }
 
 typedef CodeExpr = #if macro haxe.macro.Expr #else String #end;
@@ -51,6 +52,7 @@ typedef Markup = {
 	var ?arguments : Array<{ value : AttributeValue, pmin : Int, pmax : Int }>;
 	var ?attributes : Array<{ name : String, value : AttributeValue, pmin : Int, vmin : Int, pmax : Int }>;
 	var ?children : Array<Markup>;
+	var ?condition : { cond : CodeExpr, pmin : Int, pmax : Int };
 }
 
 class MarkupParser {
@@ -127,6 +129,7 @@ class MarkupParser {
 		// need extra state because next is in use
 		var escapeNext = BEGIN;
 		var attrValQuote = -1;
+		var parentCount = 0;
 		inline function addChild(m:Markup) {
 			m.pmin += filePos;
 			m.pmax += filePos;
@@ -399,7 +402,7 @@ class MarkupParser {
 								error("Duplicate attribute '" + aname + "'", p);
 						attr_start = start;
 						state = IGNORE_SPACES;
-						next = EQUALS;
+						next = aname == "if" ? IF_COND : EQUALS;
 						continue;
 					}
 				case EQUALS:
@@ -419,6 +422,20 @@ class MarkupParser {
 								continue;
 							}
 							error("Expected =", p);
+					}
+				case IF_COND:
+					switch( c ) {
+					case '('.code:
+						parentCount++;
+					case ')'.code:
+						parentCount--;
+						if( parentCount == 0 ) {
+							var code = str.substr(start + 2, p - start - 1);
+							if( obj.condition != null ) error("Duplicate condition", start);
+							obj.condition = { cond : parseCode(code, start+2), pmin : start + filePos, pmax : p + filePos + 1 };
+							state = BODY;
+						}
+					default:
 					}
 				case ATTVAL_BEGIN:
 					switch(c)
