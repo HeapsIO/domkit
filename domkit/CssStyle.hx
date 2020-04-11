@@ -21,13 +21,29 @@ class Rule {
 	}
 }
 
+class RuleGroup {
+	public var version : Int;
+	public var id : Null<String>;
+	public var comp : Component<Dynamic,Dynamic>;
+	public var rules : Array<Rule>;
+	public function new(version,id,comp) {
+		this.version = version;
+		this.id = id;
+		this.comp = comp;
+	}
+}
+
 @:access(domkit.Properties)
 class CssStyle {
 
 	static var TAG = 0;
+	static var _VERSION = 0;
 
 	var rules : Array<Rule>;
+	var idIds : Map<String,Int>;
+	var ruleGroups : Map<Int,RuleGroup> = new Map();
 	var needSort = true;
+	var version : Int;
 
 	public function new() {
 		rules = [];
@@ -41,18 +57,61 @@ class CssStyle {
 	function onInvalidProperty( e : Properties<Dynamic>, s : RuleStyle, msg : String ) {
 	}
 
+	static var GROUPS = 0;
+
 	function applyStyle( e : Properties<Dynamic>, force : Bool ) {
 		if( needSort ) {
 			needSort = false;
+			version = _VERSION++;
 			rules.sort(sortByPriority);
+			var iid = 0;
+			ruleGroups = new Map();
+			idIds = new Map();
+			for( r in rules ) {
+				if( r.cl.id != null && !idIds.exists(r.cl.id) )
+					idIds.set(r.cl.id, ++iid);
+			}
 		}
 		if( e.needStyleRefresh || force ) {
+
+			var group = @:privateAccess e.group;
+			if( group == null || group.version != version ) {
+				var iid = e.id == null ? 0 : idIds.get(e.id);
+				var cid = @:privateAccess e.component.uid;
+				var gid = (cid << 17) ^ iid;
+				group = ruleGroups.get(gid);
+				if( group == null ) {
+					var comp = e.component;
+					// resolve most general comp for this id
+					while( comp != null ) {
+						var found = false;
+						for( r in rules )
+							if( (r.cl.component != null && r.cl.component == comp) && (r.cl.id == null || r.cl.id == e.id) ) {
+								found = true;
+								break;
+							}
+						if( found ) break;
+						comp = comp.parent;
+					}
+					var gid2 = @:privateAccess ((comp == null ? 0 : comp.uid) << 17) ^ iid;
+					group = ruleGroups.get(gid2);
+					if( group == null ) {
+						group = new RuleGroup(version, e.id, comp);
+						group.rules = [for( r in rules ) if( (r.cl.id == null || r.cl.id == e.id) && (r.cl.component == null || (comp != null && comp.isOfType(r.cl.component))) ) r];
+						if( gid != gid2 ) ruleGroups.set(gid2, group);
+					}
+					ruleGroups.set(gid, group);
+				}
+				@:privateAccess e.group = group;
+			}
+
 			e.needStyleRefresh = false;
 			var head = null;
 			var tag = ++TAG;
 			for( p in e.style )
 				p.p.tag = tag;
-			for( r in rules ) {
+			for( r in group.rules ) {
+				TOP_COUNT++;
 				if( !ruleMatch(r.cl,e) ) continue;
 				var match = false;
 				for( p in r.style )
@@ -195,9 +254,29 @@ class CssStyle {
 		needSort = true;
 	}
 
+	static var MATCH_COUNT = 0;
+	static var TOP_COUNT = 0;
+	static var TOP_OPT_COUNT = 0;
+	static var LAST_TOP = -1;
+
 	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
+		if( MATCH_COUNT == 0 ) {
+			haxe.Timer.delay(function() {
+				trace({ matches : MATCH_COUNT, top : TOP_COUNT, opt : TOP_OPT_COUNT });
+				MATCH_COUNT = 0;
+				TOP_COUNT = 0;
+				TOP_OPT_COUNT = 0;
+			},500);
+		}
+		MATCH_COUNT++;
 		if( c.id != null && c.id != e.id )
 			return false;
+		if( c.component != null && !e.component.isOfType(c.component) )
+			return false;
+		if( LAST_TOP != TOP_COUNT ) {
+			TOP_OPT_COUNT++;
+			LAST_TOP = TOP_COUNT;
+		}
 		if( c.pseudoClasses != None ) {
 			if( c.pseudoClasses.has(HOver) && !e.hover )
 				return false;
@@ -218,8 +297,6 @@ class CssStyle {
 					return false;
 			}
 		}
-		if( c.component != null && !e.component.isOfType(c.component) )
-			return false;
 		if( c.className != null ) {
 			if( e.classes == null )
 				return false;

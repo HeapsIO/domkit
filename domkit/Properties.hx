@@ -33,6 +33,7 @@ class Properties<T:Model<T>> {
 	var currentValues : Array<CssValue>; // only for inspector
 	var needStyleRefresh : Bool = true;
 	var dirty : DirtyRef;
+	var group : CssStyle.RuleGroup;
 
 	static var KEEP_VALUES = false;
 
@@ -166,6 +167,7 @@ class Properties<T:Model<T>> {
 			case VIdent(i):
 				if( id != i ) {
 					id = i;
+					group = null;
 					updateComponentId(this);
 					needRefresh();
 				}

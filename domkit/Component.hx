@@ -37,6 +37,8 @@ class Component<BaseT,T> {
 	public var make : Array<Dynamic> -> BaseT -> T;
 	public var parent : Component<BaseT,Dynamic>;
 	var propsHandler : Array<PropertyHandler<T,Dynamic>>;
+	var uid : Int = ++_UID;
+	static var _UID = 0;
 
 	public function new(name, make, parent) {
 		this.name = name;
