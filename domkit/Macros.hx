@@ -277,7 +277,14 @@ class Macros {
 				tmp.setAttribute("text",VString($v{text}));
 			};
 		case CodeBlock(expr):
-			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
+			var offset = 0;
+			var sexpr = StringTools.trim(expr);
+			var lchar = sexpr.charCodeAt(sexpr.length - 1);
+			if( lchar == ";".code || lchar == '}'.code ) {
+				offset = -1;
+				expr = "{"+expr+"}";
+			}
+			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin + offset, m.pmax));
 			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
 			return expr;
 		case Macro(id):
