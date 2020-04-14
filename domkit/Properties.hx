@@ -49,6 +49,10 @@ class Properties<T:Model<T>> {
 		dirty.mark();
 	}
 
+	public function getClasses() : Iterable<String> {
+		return classes == null ? [] : classes;
+	}
+
 	public function onParentChanged() {
 		var p = parent;
 		if( p == null )
