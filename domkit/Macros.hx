@@ -90,6 +90,15 @@ class Macros {
 		return error("Could not load component '"+name+"'", pmin, pmax);
 	}
 
+	static function replaceThis( e : haxe.macro.Expr, ethis : haxe.macro.Expr ) {
+		switch( e.expr ) {
+		case EConst(CIdent("__this__")):
+			e.expr = ethis.expr;
+		default:
+			e.iter(function(e) replaceThis(e,ethis));
+		}
+	}
+
 	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false ) : Expr {
 		switch (m.kind) {
 		case Node(name):
@@ -148,13 +157,8 @@ class Macros {
 					case Code(e):
 						var field = attr.name;
 						var fpos = makePos(e.pos, attr.pmin, attr.pmin + attr.name.length);
-						if( isRoot )
-							aexprs.push({ expr : EBinop(OpAssign,{ expr : EField(macro this,field), pos : fpos },e), pos : fpos });
-						else {
-							var ct = Std.downcast(comp, MetaComponent).baseType;
-							var expr = { expr : EBinop(OpAssign,{ expr : EField(macro (cast tmp.obj : $ct),field), pos : fpos },e), pos : fpos };
-							aexprs.push(expr);
-						}
+						var expr = { expr : EBinop(OpAssign,{ expr : EField(macro __this__,field), pos : fpos },e), pos : fpos };
+						aexprs.push(expr);
 					default:
 						if( p == null )
 							error("Unknown property "+attr.name, attr.pmin, attr.pmin + attr.name.length);
@@ -267,6 +271,12 @@ class Macros {
 				exprs.unshift(macro var __contentRoot);
 				exprs.push(macro @:privateAccess dom.contentRoot = __contentRoot.contentRoot);
 			}
+
+			var ct = Std.downcast(comp, MetaComponent).baseType;
+			var ethis = isRoot ? macro this : macro (cast tmp.obj : $ct);
+			for( e in exprs )
+				replaceThis(e, ethis);
+
 			if( m.condition != null )
 				return macro if( ${m.condition.cond} ) $b{exprs};
 			return macro $b{exprs};
