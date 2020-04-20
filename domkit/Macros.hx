@@ -230,16 +230,16 @@ class Macros {
 					}
 					var isArray = StringTools.endsWith(field,"[]");
 					if( isArray ) {
+						field = field.substr(0,field.length-2);
 						switch( attributes.expr ) {
 						case EObjectDecl(fields):
 							for( f in fields )
 								if( f.field == "id" ) {
-									fields.remove(f);
+									f.expr.expr = EConst(CString(field));
 									break;
 								}
 						default:
 						}
-						field = field.substr(0,field.length-2);
 						exprs.push(macro this.$field.push(cast tmp.obj));
 						if( !data.declaredIds.exists(field) ) {
 							data.declaredIds.set(field, true);
