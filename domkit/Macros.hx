@@ -99,6 +99,11 @@ class Macros {
 		}
 	}
 
+	static function withPos( e : haxe.macro.Expr, pos : Position ) : haxe.macro.Expr {
+		e = e.map(function(e) return withPos(e,pos));
+		return { expr : e.expr, pos : pos };
+	}
+
 	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false ) : Expr {
 		switch (m.kind) {
 		case Node(name):
@@ -193,7 +198,7 @@ class Macros {
 					} else {
 						aexprs.push(macro var __attrib = $e);
 						var eattrib = { expr : EConst(CIdent("__attrib")), pos : e.pos };
-						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(eset,[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
+						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
 						aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
 					}
 				}
