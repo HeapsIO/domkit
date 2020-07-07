@@ -437,9 +437,9 @@ class Macros {
 					value : switch( a.kind ) { case FVar(_,e): e; default: throw "assert"; },
 					opt : a.meta.length == 1,
 				}],
-				expr : macro { super($a{anames}); $initExpr; }
+				expr : if( initFunc == "new" ) macro { super($a{anames}); $initExpr; } else macro { super.$initFunc($a{anames}); $initExpr; },
 			}),
-			access: [APublic],
+			access: [initFunc == "new" ? APublic : AOverride],
 		});
 	}
 
