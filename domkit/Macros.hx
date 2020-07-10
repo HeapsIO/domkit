@@ -140,12 +140,25 @@ class Macros {
 			}
 
 			var access = APrivate;
-			for( a in m.attributes )
-				if( a.name == "public" && a.value.match(RawValue("true")) ) {
+			for( a in m.attributes ) {
+				switch( a.name ) {
+				case "public" if( a.value.match(RawValue("true")) ):
 					m.attributes.remove(a);
 					access = APublic;
-					break;
+				case "id" if( a.value.match(RawValue("true")) ):
+					var name = null;
+					for( a in m.attributes )
+						if( a.name == "class" ) {
+							switch( a.value ) {
+							case RawValue(v): name = v.split(" ")[0];
+							default:
+							}
+						}
+					if( name == null ) error("Could not tell name from class attribute", a.pmin, a.pmax);
+					a.value = RawValue(name);
+				default:
 				}
+			}
 
 			var avalues = [];
 			var aexprs = [];
@@ -230,17 +243,6 @@ class Macros {
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
-					case RawValue("true"):
-						var name = null;
-						for( a in m.attributes )
-							if( a.name == "class" ) {
-								switch( a.value ) {
-								case RawValue(v): name = v.split(" ")[0];
-								default:
-								}
-							}
-						if( name == null ) error("Could not tell name from class attribute", a.pmin, a.pmax);
-						name;
 					case RawValue(v): MetaComponent.componentNameToClass(v,true);
 					default: continue;
 					}
