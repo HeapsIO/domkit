@@ -53,6 +53,12 @@ class Properties<T:Model<T>> {
 		return classes == null ? [] : classes;
 	}
 
+	public function hasClass( name : String ) {
+		if( classes == null )
+			return false;
+		return classes.indexOf(name) >= 0;
+	}
+
 	public function onParentChanged() {
 		var p = parent;
 		if( p == null )
