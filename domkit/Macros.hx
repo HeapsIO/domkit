@@ -315,6 +315,14 @@ class Macros {
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin + offset, m.pmax));
 			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
 			return expr;
+		case For(expr):
+			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
+			expr = switch( expr.expr ) {
+			case EParenthesis(e): e;
+			default: expr;
+			}
+			var exprs = [for( c in m.children ) buildComponentsInit(c, data, pos)];
+			return macro for( $expr ) $a{exprs};
 		case Macro(id):
 			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
 				case RawValue(v): { expr : EConst(CString(v)), pos : makePos(pos, a.pmin, a.pmax) };

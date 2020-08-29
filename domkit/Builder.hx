@@ -94,7 +94,7 @@ class Builder<T:domkit.Model<T>> {
 			for( e in x.children )
 				buildRec(e, inst == null ? parent : inst);
 			path.pop();
-		case CodeBlock(code):
+		case CodeBlock(_), For(_):
 			warn("Unsupported code block", x.pmin, x.pmax);
 		case Macro(_):
 			warn("Unsupported macro", x.pmin, x.pmax);

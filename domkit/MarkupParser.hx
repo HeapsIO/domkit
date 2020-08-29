@@ -38,6 +38,7 @@ enum MarkupKind {
 	Text( text : String );
 	CodeBlock( v : String );
 	Macro( id : String );
+	For( cond : String );
 }
 
 enum AttributeValue {
@@ -53,6 +54,12 @@ typedef Markup = {
 	var ?attributes : Array<{ name : String, value : AttributeValue, pmin : Int, vmin : Int, pmax : Int }>;
 	var ?children : Array<Markup>;
 	var ?condition : { cond : CodeExpr, pmin : Int, pmax : Int };
+}
+
+private typedef MarkupLoop = {
+	var obj : Markup;
+	var isBlock : Bool;
+	var prevLoop : MarkupLoop;
 }
 
 class MarkupParser {
@@ -130,23 +137,49 @@ class MarkupParser {
 		var escapeNext = BEGIN;
 		var attrValQuote = -1;
 		var parentCount = 0;
+		var currentLoop : MarkupLoop = null;
 		inline function addChild(m:Markup) {
 			m.pmin += filePos;
 			m.pmax += filePos;
-			parent.children.push(m);
-			nsubs++;
+			if( currentLoop != null ) {
+				currentLoop.obj.children.push(m);
+				if( !currentLoop.isBlock )
+					currentLoop = currentLoop.prevLoop;
+			} else {
+				parent.children.push(m);
+				nsubs++;
+			}
 		}
-		inline function addText() {
+		var r_prefix = ~/^([a-z]+)/;
+		function emitCode() {
 			var fullText = buf.toString();
 			var text = StringTools.trim(fullText);
 			if( text.length > 0 ) {
 				start += fullText.indexOf(text);
-				var child : Markup = {
-					kind : Text(text),
-					pmin : start,
-					pmax : start + text.length,
-				};
-				addChild(child);
+				if( r_prefix.match(text) ) {
+					switch( r_prefix.matched(1) ) {
+					case "for":
+						var cond = r_prefix.matchedRight();
+						var isBlock = false;
+						if( StringTools.endsWith(cond,"{") ) {
+							isBlock = true;
+							cond = cond.substr(0,-1);
+						}
+						var obj = {
+							kind : For(cond),
+							pmin : start,
+							pmax : start + text.length,
+							children : [],
+						};
+						addChild(obj);
+						currentLoop = { prevLoop : currentLoop, isBlock : isBlock, obj : obj };
+						return;
+					}
+				} else if( text == "}" && currentLoop != null && currentLoop.isBlock ) {
+					currentLoop = currentLoop.prevLoop;
+					return;
+				}
+				error("Unsupported code block", start, start + text.length);
 			}
 		}
 		inline function addNodeArg(last) {
@@ -197,7 +230,7 @@ class MarkupParser {
 					switch( c ) {
 					case '<'.code, '$'.code:
 						buf.addSub(str, start, p - start);
-						addText();
+						emitCode();
 						buf = new StringBuf();
 						if( c == '$'.code ) {
 							start = p + 1;
@@ -206,11 +239,6 @@ class MarkupParser {
 							state = IGNORE_SPACES;
 							next = BEGIN_NODE;
 						}
-					case '&'.code:
-						buf.addSub(str, start, p - start);
-						state = ESCAPE;
-						escapeNext = PCDATA;
-						start = p + 1;
 					case '@'.code:
 						buf.addSub(str, start, p - start);
 						if( StringTools.trim(buf.toString()) == "" ) {
@@ -524,8 +552,8 @@ class MarkupParser {
 					switch(c)
 					{
 						case '>'.code:
-							//if( nsubs == 0 )
-							//	parent.children.push({ kind : Text(""), pmin : p, pmax : p });
+							if( currentLoop != null )
+								error("Unclosed loop", currentLoop.obj.pmin - filePos, currentLoop.obj.pmax - filePos);
 							return p;
 						default :
 							error("Expected >", p);
@@ -622,8 +650,10 @@ class MarkupParser {
 			}
 			if (p != start || nsubs == 0) {
 				buf.addSub(str, start, p-start);
-				addText();
+				emitCode();
 			}
+			if( currentLoop != null )
+				error("Unclosed loop", currentLoop.obj.pmin - filePos);
 			return p;
 		}
 

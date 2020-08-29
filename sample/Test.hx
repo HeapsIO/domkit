@@ -17,6 +17,25 @@ class Obj extends Components.MydivComponent {
 
 }
 
+class SyntaxTest extends Components.BaseComponent {
+
+	static var SRC = <syntax-test>
+		for( x in arr )
+			<custom(x)/>
+		for( y in arr ) {
+			<custom(y)/>
+			<custom(y)/>
+		}
+	</syntax-test>
+
+	public function new(?parent) {
+		super(parent);
+		var arr = [1,2,3];
+		initComponent();
+	}
+
+}
+
 class Test {
 
 	public static var exampleText = "Hello World";
