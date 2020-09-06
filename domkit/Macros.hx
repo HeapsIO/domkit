@@ -99,6 +99,53 @@ class Macros {
 		}
 	}
 
+	static var latestBlock : Array<Expr> = null;
+
+	static function remapBuild( e : haxe.macro.Expr ) {
+		switch( e.expr ) {
+		case EMeta(m, expr) if( m.name == "rebuild" ):
+			switch( expr.expr ) {
+			case EVars([v]):
+				var value = v.expr;
+				v.expr = null;
+				if( latestBlock == null ) throw "assert";
+				latestBlock.push(expr);
+				if( value != null ) {
+					e.expr = ECall({ expr : EConst(CIdent("registerCheckRebuild")), pos : e.pos },[{ expr : EFunction(null,{
+						args : [],
+						ret : null,
+						expr : { expr : EBlock([
+							{ expr : EBinop(OpAssign,{ expr : EConst(CIdent(v.name)), pos : e.pos },value), pos : e.pos },
+							macro return null,
+						]), pos : e.pos },
+					}), pos : e.pos }]);
+				}
+			default:
+				e.expr = ECall({ expr : EConst(CIdent("registerCheckRebuild")), pos : e.pos },[{ expr : EFunction(null,{
+					args : [],
+					ret : null,
+					expr : { expr : EReturn(expr), pos : e.pos },
+				}), pos : e.pos }]);
+			}
+		case EBinop(op = OpEq | OpNotEq, { expr : EMeta(m = { name : "rebuild" },e1) }, e2):
+			e.expr = EMeta(m,{ expr : EBinop(op,e1,e2), pos : e.pos });
+			remapBuild(e);
+			return;
+		case EBlock(exprs):
+			var prev = latestBlock;
+			latestBlock = [];
+			for( e in exprs ) {
+				remapBuild(e);
+				latestBlock.push(e);
+			}
+			e.expr = EBlock(latestBlock);
+			latestBlock = prev;
+			return;
+		default:
+		}
+		e.iter(remapBuild);
+	}
+
 	static function withPos( e : haxe.macro.Expr, pos : Position ) : haxe.macro.Expr {
 		e = e.map(function(e) return withPos(e,pos));
 		return { expr : e.expr, pos : pos };
@@ -295,8 +342,10 @@ class Macros {
 			for( e in exprs )
 				replaceThis(e, ethis);
 
-			if( m.condition != null )
+			if( m.condition != null ) {
+				remapBuild(m.condition.cond);
 				return macro if( ${m.condition.cond} ) $b{exprs};
+			}
 			return macro $b{exprs};
 		case Text(text):
 			var c = loadComponent("text",m.pmin, m.pmax);
@@ -314,9 +363,11 @@ class Macros {
 			}
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin + offset, m.pmax));
 			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
+			remapBuild(expr);
 			return expr;
 		case For(expr):
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
+			remapBuild(expr);
 			expr = switch( expr.expr ) {
 			case EParenthesis(e): e;
 			default: expr;
