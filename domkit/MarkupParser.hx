@@ -240,8 +240,8 @@ class MarkupParser {
 							next = BEGIN_NODE;
 						}
 					case '@'.code:
-						buf.addSub(str, start, p - start);
-						if( StringTools.trim(buf.toString()) == "" ) {
+						if( StringTools.trim(str.substr(start, p - start)) == "" ) {
+							buf.addSub(str, start, p - start);
 							state = MACRO_ID;
 							start = p + 1;
 						}
