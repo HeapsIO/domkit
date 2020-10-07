@@ -167,6 +167,22 @@ class Properties<T:Model<T>> {
 		needRefresh();
 	}
 
+	/**
+	 * Will remove other class starting with `kind-` and enable `kind-value` class instead
+	 */
+	public function setClassKind( kind : String, value : String ) {
+		kind += "-";
+		var full = kind + value;
+		for( c in classes )
+			if( StringTools.startsWith(c,kind) ) {
+				if( c == full ) return;
+				classes.remove(c);
+				break;
+			}
+		classes.push(full);
+		needRefresh();
+	}
+
 	public function setAttribute( p : String, value : CssValue ) : SetAttributeResult {
 		var p = Property.get(p,false);
 		if( p == null )
