@@ -173,6 +173,7 @@ class Properties<T:Model<T>> {
 	public function setClassKind( kind : String, value : String ) {
 		kind += "-";
 		var full = kind + value;
+		if( classes == null ) classes = [];
 		for( c in classes )
 			if( StringTools.startsWith(c,kind) ) {
 				if( c == full ) return;
