@@ -89,7 +89,9 @@ class Properties<T:Model<T>> {
 	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
 		if( partialRefresh && !dirty.dirty ) return;
 		style.applyStyle(this, !partialRefresh);
-		dirty.dirty = false;
+		// if we did apply the style to a children element manually, we should not mark things
+		// as done as some parents styles might have not yet been updated
+		if( parent == null ) dirty.dirty = false;
 	}
 
 	public function removeClass( c : String ) {
