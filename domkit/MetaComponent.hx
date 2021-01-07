@@ -151,7 +151,31 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 	function initParser( c : ClassType ) {
 		var pdef = c.meta.extract(":parser")[0];
-		if( pdef == null ) {
+		var path = null;
+
+		if( pdef != null ) {
+			if( pdef.params.length == 0 )
+				error("Invalid parser definition", pdef.pos);
+			var e = pdef.params[0];
+			path = [];
+			while( true ) {
+				switch( e.expr ) {
+				case EField(e2, field):
+					path.unshift(field);
+					e = e2;
+				case EConst(CIdent(i)):
+					path.unshift(i);
+					break;
+				default:
+					error("Invalid parser definition", e.pos);
+				}
+			}
+		} else if( parent == null ) {
+			var defPath = Macros.defaultParserPath;
+			if( defPath != null ) path = defPath.split(".");
+		}
+
+		if( path == null ) {
 			if( parent != null ) {
 				var parent = cast(parent,MetaComponent);
 				parserType = parent.parserType;
@@ -161,22 +185,6 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				parser = new domkit.CssValue.ValueParser();
 			}
 			return;
-		}
-		if( pdef.params.length == 0 )
-			error("Invalid parser definition", pdef.pos);
-		var e = pdef.params[0];
-		var path = [];
-		while( true ) {
-			switch( e.expr ) {
-			case EField(e2, field):
-				path.unshift(field);
-				e = e2;
-			case EConst(CIdent(i)):
-				path.unshift(i);
-				break;
-			default:
-				error("Invalid parser definition", e.pos);
-			}
 		}
 		var name = path.pop();
 		inline function isUpper(str:String) return str.charCodeAt(0) >= 'A'.code && str.charCodeAt(0) <= 'Z'.code;

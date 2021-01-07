@@ -21,6 +21,7 @@ class Macros {
 	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
 	@:persistent static var preload : Array<String> = [];
+	@:persistent public static var defaultParserPath : String = null;
 	static var RESOLVED_COMPONENTS = new Map();
 
 	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
@@ -30,6 +31,10 @@ class Macros {
 	public static function registerComponentsPath( path : String ) {
 		if( componentsSearchPath.indexOf(path) < 0 )
 			componentsSearchPath.push(path);
+	}
+
+	public static function setDefaultParser( path : String ) {
+		defaultParserPath = path;
 	}
 
 	public static function checkCSS( file : String ) {
