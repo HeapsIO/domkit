@@ -30,11 +30,13 @@ enum abstract PseudoClass(Int) {
 
 	var None = 0;
 	var HOver = 1;
-	var FirstChild = 2 | 64;
-	var LastChild = 4 | 64;
-	var Odd = 8 | 64;
-	var Even = 16 | 64;
+	var FirstChild = 2;
+	var LastChild = 4;
+	var Odd = 8;
+	var Even = 16;
 	var Active = 32;
+
+	// set for some flags requiring children checks
 	var NeedChildren = 64;
 
 	inline function new(v:Int) {
@@ -314,12 +316,16 @@ class CssParser {
 							c.pseudoClasses |= HOver;
 						case "first-child":
 							c.pseudoClasses |= FirstChild;
+							c.pseudoClasses |= NeedChildren;
 						case "last-child":
 							c.pseudoClasses |= LastChild;
+							c.pseudoClasses |= NeedChildren;
 						case "odd":
 							c.pseudoClasses |= Odd;
+							c.pseudoClasses |= NeedChildren;
 						case "even":
 							c.pseudoClasses |= Even;
+							c.pseudoClasses |= NeedChildren;
 						case "active":
 							c.pseudoClasses |= Active;
 						default:
