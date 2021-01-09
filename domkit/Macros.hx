@@ -439,18 +439,17 @@ class Macros {
 		var initFunc = "new";
 		var initArgs = null;
 
-		var csup = cl.superClass;
-		while( csup != null ) {
-			var cl = csup.t.get();
-			if( cl.meta.has(":uiInitFunction") || (initArgs == null && cl.meta.has(":domkitInitArgs")) ) {
-				for( m in cl.meta.get() )
+		var ccur = cl;
+		while( true ) {
+			if( ccur.meta.has(":uiInitFunction") || (initArgs == null && ccur.meta.has(":domkitInitArgs")) ) {
+				for( m in ccur.meta.get() )
 					switch( m.name ) {
 					case ":uiInitFunction" if( m.params.length == 1 ):
 						switch( m.params[0].expr ) {
 						case EConst(CIdent(name)): initFunc = name;
 						default: Context.warning("Invalid @:uiInitFunction(funName)", m.pos);
 						}
-					case ":domkitInitArgs" if( initArgs == null ):
+					case ":domkitInitArgs" if( initArgs == null && ccur != cl ):
 						switch( m.params[0].expr ) {
 						case ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields))
 						   | EParenthesis({ expr : ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields)) }):
@@ -460,7 +459,8 @@ class Macros {
 					default:
 					}
 			}
-			csup = cl.superClass;
+			if( ccur.superClass == null ) break;
+			ccur = ccur.superClass.t.get();
 		}
 
 		var found = null;
