@@ -194,7 +194,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		var clPath = path.length == 0 ? name : path.join(".")+"."+name;
 		var cl = std.Type.resolveClass(clPath);
 		if( cl == null )
-			error("Class "+clPath+" has not been compiled in macros", pdef.pos);
+			error("Class "+clPath+" has not been compiled in macros", pdef == null ? haxe.macro.Context.currentPos() : pdef.pos);
 		parser = std.Type.createInstance(cl,[]);
 	}
 
