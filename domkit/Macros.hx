@@ -275,7 +275,7 @@ class Macros {
 				var initAttr = attributes.expr.match(EConst(CIdent("null"))) ? macro null : macro tmp.initAttributes($attributes);
 				[
 					(macro var tmp : domkit.Properties<$componentsType> = this.dom),
-					macro if( tmp == null ) {
+					macro @:pos(pos) if( tmp == null ) {
 						tmp = domkit.Properties.create($v{name},($baseCheck:$componentsType), $attributes);
 						this.dom = tmp;
 					} else {
@@ -284,8 +284,7 @@ class Macros {
 					},
 				];
 			} else {
-				var newExpr = macro domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes);
-				newExpr.pos = pos;
+				var newExpr = macro @:pos(pos) domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes);
 				[macro var tmp = @:privateAccess $newExpr];
 			}
 			if( isContent ) {
