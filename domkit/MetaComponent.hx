@@ -43,7 +43,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		while( true ) {
 			if( ccur.superClass == null ) break;
 			var csup = ccur.superClass.t.get();
-			var cname = getCompName(csup);
+			var cname = getCompName(csup, true);
 			if( cname != null ) {
 				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0) catch( e : domkit.Error ) null catch( e : Error ) null;
 				if( metaParent == null ) error("Missing super component registration "+cname, c.pos);
@@ -339,9 +339,9 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return null;
 	}
 
-	function getCompName( c : ClassType ) {
+	function getCompName( c : ClassType, opt = false ) {
 		var name = c.meta.extract(":uiComp")[0];
-		if( name == null ) return c.meta.has(":uiNoComponent") ? null : CssParser.haxeToCss(c.name);
+		if( name == null ) return c.meta.has(":uiNoComponent") || (opt && c.pack[0] == "h2d") ? null : CssParser.haxeToCss(c.name);
 		if( name.params.length == 0 ) error("Invalid :uiComp", name.pos);
 		return switch( name.params[0].expr ) {
 		case EConst(CString(name)): name;
