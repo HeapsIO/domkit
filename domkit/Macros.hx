@@ -2,8 +2,11 @@ package domkit;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.Type;
 import domkit.Error;
+
 using haxe.macro.Tools;
+using haxe.macro.ExprTools;
 
 typedef ComponentData = {
 	var declaredIds : Map<String,Bool>;
@@ -104,9 +107,42 @@ class Macros {
 		}
 	}
 
+	static function remapBind( rootExpr : haxe.macro.Expr ) {
+		var isBound = false;
+		var bname:String = null;
+		function _remap(e : haxe.macro.Expr) {
+			switch( e.expr ) {
+				case EMeta(m, group) if( m.name == "bind" ):
+					if(m.params.length > 0)
+						switch(m.params[0].expr) {
+							case EConst(CIdent(name)):
+								bname = name;
+							default:
+						}
+					isBound = true;
+					_remap(group);
+					e.expr = group.expr;
+					return;
+				case EConst(CIdent(name)) if(isBound):
+					e.expr = ((macro domkit.Macros.bindVar($i{name})).expr); 
+					return;
+				case EField(obj, name) if(isBound):
+					e.expr = ((macro domkit.Macros.bindVar($obj.$name)).expr); 
+					return;
+				default:
+			}
+			e.iter(_remap);
+		}
+		_remap(rootExpr);
+		return {
+			isBound: isBound,
+			name: bname
+		};
+	}
+	
 	static var latestBlock : Array<Expr> = null;
 
-	static function remapBuild( e : haxe.macro.Expr ) {
+	static function remapBuild( e : haxe.macro.Expr) {
 		switch( e.expr ) {
 		case EMeta(m, expr) if( m.name == "rebuild" ):
 			switch( expr.expr ) {
@@ -261,10 +297,22 @@ class Macros {
 						} else
 							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
 					} else {
-						aexprs.push(macro var __attrib = $e);
+						var binding = remapBind(e);
 						var eattrib = { expr : EConst(CIdent("__attrib")), pos : e.pos };
-						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
-						aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+						var setter = { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos };
+						aexprs.push(macro {
+							function __onVarChanged() {
+								var __attrib = $e;
+								@:privateAccess $setter;
+								@:privateAccess tmp.initStyle($v{p.name},$eattrib);
+							}
+							$e{
+								if(binding.isBound)
+									macro registerBind(__onVarChanged, $v{binding.name})
+								else macro {}
+							}
+							__onVarChanged();
+						});
 					}
 				}
 			}
@@ -595,5 +643,46 @@ class Macros {
 	}
 
 	#end
+
+	public static macro function bindVar(e : haxe.macro.Expr) : haxe.macro.Expr {
+		switch(Context.typeof(e)) {
+			case TInst(_):
+				return e;
+			case TFun(args,ret):
+				if(args.length == 1) {
+					function matchCallback(t:Type) {
+						return switch(t) {
+							// Void->Void callback
+							case TFun([], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])):
+								return macro {
+									$e(__onVarChanged);
+								};
+							// (newValue:T)->Void callback
+							case TFun([{ t : argType }], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])) if (Context.unify(argType,ret)):
+								return macro {
+									$e(v -> __onVarChanged());
+								};
+							// (newValue:T, oldValue:T)->Void callback
+							case TFun([{ t : argType }, { t : arg2Type }], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])) if (Context.unify(argType,ret) && Context.unify(arg2Type,ret)):
+								return macro {
+									$e((v1,v2) -> __onVarChanged());
+								};
+							default: null;
+						}
+					}
+					var t = args[0].t;
+					var expr = switch(t) {
+						case TAbstract(_,[func]):
+							matchCallback(func);
+						default:
+							matchCallback(t);
+					};
+					if(expr != null)
+						return expr;
+				}
+			default:
+		}
+		throw "Unsupported callback type used with @bind";
+	}
 
 }

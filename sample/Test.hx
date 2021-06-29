@@ -36,6 +36,36 @@ class SyntaxTest extends Components.BaseComponent {
 
 }
 
+class BindingTest extends Components.BaseComponent {
+
+	static var SRC = <binding-test>
+		<text text={@bind(myLabel) labelPrefix + " " + myText + "!"}/>
+	</binding-test>
+
+	var labelPrefix = "Hello";
+	var labelText(default, set) = "My Placeholder";
+	var binding:Void->Void;
+
+	public function new(?parent) {
+		super(parent);
+		var arr = [1,2,3];
+		initComponent();
+		labelText = "My Label";
+	}
+	function set_labelText(v) {
+		labelText = v;
+		if(binding != null) binding();
+		return v;
+	}
+	function myText(cb:Void->Void):String {
+		binding = cb;
+		return labelText;
+	}
+	function registerBind(cb, name) {
+		trace("Registered binding of name: "+name);
+	}
+}
+
 class Test {
 
 	public static var exampleText = "Hello World";
@@ -59,6 +89,10 @@ class Test {
 		trace(o.sub.paddingLeft); // 60
 
 		trace(o.sub.maxWidth); // null
+
+
+		var o = new BindingTest();
+		trace( cast(o.getChildren()[0],Components.TextComponent).text );
 
 	}
 
