@@ -30,6 +30,10 @@ class Macros {
 	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
 		return null;
 	}
+	
+	public static dynamic function processBind( e : haxe.macro.Expr ) : haxe.macro.Expr {
+		return null;
+	}
 
 	public static function registerComponentsPath( path : String ) {
 		if( componentsSearchPath.indexOf(path) < 0 )
@@ -110,6 +114,7 @@ class Macros {
 	static function remapBind( rootExpr : haxe.macro.Expr ) {
 		var isBound = false;
 		var bname:String = null;
+		var bindExprs:Array<haxe.macro.Expr> = [];
 		function _remap(e : haxe.macro.Expr) {
 			switch( e.expr ) {
 				case EMeta(m, group) if( m.name == "bind" ):
@@ -124,10 +129,12 @@ class Macros {
 					e.expr = group.expr;
 					return;
 				case EConst(CIdent(name)) if(isBound):
-					e.expr = ((macro domkit.Macros.bindVar($i{name})).expr); 
+					var b = macro domkit.Macros.bindVar($i{name});
+					bindExprs.push(b);
 					return;
 				case EField(obj, name) if(isBound):
-					e.expr = ((macro domkit.Macros.bindVar($obj.$name)).expr); 
+					var b = macro domkit.Macros.bindVar($obj.$name);
+					bindExprs.push(b);
 					return;
 				default:
 			}
@@ -136,7 +143,8 @@ class Macros {
 		_remap(rootExpr);
 		return {
 			isBound: isBound,
-			name: bname
+			name: bname,
+			exprs: bindExprs
 		};
 	}
 	
@@ -306,6 +314,7 @@ class Macros {
 								@:privateAccess $setter;
 								@:privateAccess tmp.initStyle($v{p.name},$eattrib);
 							}
+							$b{binding.exprs};
 							$e{
 								if(binding.isBound)
 									macro registerBind(__onVarChanged, $v{binding.name})
@@ -645,44 +654,6 @@ class Macros {
 	#end
 
 	public static macro function bindVar(e : haxe.macro.Expr) : haxe.macro.Expr {
-		switch(Context.typeof(e)) {
-			case TInst(_):
-				return e;
-			case TFun(args,ret):
-				if(args.length == 1) {
-					function matchCallback(t:Type) {
-						return switch(t) {
-							// Void->Void callback
-							case TFun([], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])):
-								return macro {
-									$e(__onVarChanged);
-								};
-							// (newValue:T)->Void callback
-							case TFun([{ t : argType }], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])) if (Context.unify(argType,ret)):
-								return macro {
-									$e(v -> __onVarChanged());
-								};
-							// (newValue:T, oldValue:T)->Void callback
-							case TFun([{ t : argType }, { t : arg2Type }], TAbstract(_.get() => {module: "StdTypes", name: "Void"}, [])) if (Context.unify(argType,ret) && Context.unify(arg2Type,ret)):
-								return macro {
-									$e((v1,v2) -> __onVarChanged());
-								};
-							default: null;
-						}
-					}
-					var t = args[0].t;
-					var expr = switch(t) {
-						case TAbstract(_,[func]):
-							matchCallback(func);
-						default:
-							matchCallback(t);
-					};
-					if(expr != null)
-						return expr;
-				}
-			default:
-		}
-		throw "Unsupported callback type used with @bind";
+		return processBind(e);
 	}
-
 }
