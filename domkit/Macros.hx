@@ -435,7 +435,7 @@ class Macros {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
 		}
-		var initFunc = "new";
+		var initFunc = null;
 		var initArgs = null;
 
 		var ccur = cl;
@@ -443,11 +443,16 @@ class Macros {
 			if( ccur.meta.has(":uiInitFunction") || (initArgs == null && ccur.meta.has(":domkitInitArgs")) ) {
 				for( m in ccur.meta.get() )
 					switch( m.name ) {
-					case ":uiInitFunction" if( m.params.length == 1 ):
-						switch( m.params[0].expr ) {
-						case EConst(CIdent(name)): initFunc = name;
-						default: Context.warning("Invalid @:uiInitFunction(funName)", m.pos);
+					case ":uiInitFunction" if(initFunc == null):
+						if( m.params.length == 1 ) {
+							switch( m.params[0].expr ) {
+							case EConst(CIdent(name)): initFunc = name;
+							default: Context.warning("Invalid @:uiInitFunction(funName)", m.pos);
+							}
 						}
+						else if( m.params.length == 0 )
+							initFunc = "new";
+						
 					case ":domkitInitArgs" if( initArgs == null && ccur != cl ):
 						switch( m.params[0].expr ) {
 						case ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields))
@@ -462,6 +467,8 @@ class Macros {
 			ccur = ccur.superClass.t.get();
 		}
 
+		if( initFunc == null )
+			initFunc = "new";
 		var found = null;
 		for( f in fields )
 			if( f.name == initFunc ) {
