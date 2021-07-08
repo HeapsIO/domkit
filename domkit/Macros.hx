@@ -439,11 +439,11 @@ class Macros {
 		var initArgs = null;
 
 		var ccur = cl;
-		while( true ) {
-			if( ccur.meta.has(":uiInitFunction") || (initArgs == null && ccur.meta.has(":domkitInitArgs")) ) {
-				for( m in ccur.meta.get() )
+		while( initFunc == null ) {
+			if( ccur.meta.has(":uiInitFunction") ) {
+				for( m in ccur.meta.get() ) {
 					switch( m.name ) {
-					case ":uiInitFunction" if(initFunc == null):
+					case ":uiInitFunction":
 						if( m.params.length == 1 ) {
 							switch( m.params[0].expr ) {
 							case EConst(CIdent(name)): initFunc = name;
@@ -452,8 +452,21 @@ class Macros {
 						}
 						else if( m.params.length == 0 )
 							initFunc = "new";
-						
-					case ":domkitInitArgs" if( initArgs == null && ccur != cl ):
+					}
+				}
+			}
+			if( ccur.superClass == null ) break;
+			ccur = ccur.superClass.t.get();
+		}
+		if( initFunc == null )
+			initFunc = "new";
+
+		var ccur = cl;
+		while( initArgs == null ) {
+			if( ccur.meta.has(":domkitInitArgs") ) {
+				for( m in ccur.meta.get() ) {
+					switch( m.name ) {
+					case ":domkitInitArgs" if( ccur != cl ):
 						switch( m.params[0].expr ) {
 						case ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields))
 						   | EParenthesis({ expr : ECheckType({ expr : EConst(CIdent(name)) }, TAnonymous(fields)) }):
@@ -462,13 +475,12 @@ class Macros {
 						}
 					default:
 					}
+				}
 			}
 			if( ccur.superClass == null ) break;
 			ccur = ccur.superClass.t.get();
 		}
 
-		if( initFunc == null )
-			initFunc = "new";
 		var found = null;
 		for( f in fields )
 			if( f.name == initFunc ) {
