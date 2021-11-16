@@ -308,6 +308,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						p.expr = macro parser.parseAuto.bind(${p.expr});
 						p.value = parser.parseAuto.bind(p.value);
 					}
+					p.def = null;
 				}
 				return p;
 			default:
