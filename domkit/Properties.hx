@@ -31,7 +31,10 @@ class Properties<T:Model<T>> {
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
 	var currentValues : Array<CssValue>; // only for inspector
+	var transitionValues : Map<Int,Dynamic>;
 	var needStyleRefresh : Bool = true;
+	var firstInit : Bool = true;
+	var transitionCount : Int = 0;
 	var dirty : DirtyRef;
 
 	static var KEEP_VALUES = false;
@@ -250,6 +253,10 @@ class Properties<T:Model<T>> {
 				}
 				currentSet.push(p);
 			}
+		}
+		if( p.hasTransition ) {
+			if( transitionValues == null ) transitionValues = new Map();
+			transitionValues.set(p.id, v);
 		}
 		handler.apply(obj,v);
 		return Ok;

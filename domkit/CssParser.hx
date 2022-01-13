@@ -69,7 +69,68 @@ class CssClass {
 	}
 }
 
-typedef CssSheet = Array<{ classes : Array<CssClass>, style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int }> }>;
+typedef Transition = {
+	var p : Property;
+	var time : Float;
+	var curve : Curve;
+}
+
+typedef CssSheet = Array<{
+	var classes : Array<CssClass>;
+	var style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int }>;
+	var ?transitions : Array<Transition>;
+ }>;
+
+
+class Curve {
+	public function new() {
+	}
+	public function interpolate( v : Float ) : Float {
+		return v;
+	}
+}
+
+class BezierCurve extends Curve {
+	public var c1x : Float;
+	public var c1y : Float;
+	public var c2x : Float;
+	public var c2y : Float;
+
+	public function new(a:Float,b:Float,c:Float,d:Float) {
+		super();
+		this.c1x = a;
+		this.c1y = b;
+		this.c2x = c;
+		this.c2y = d;
+	}
+
+	inline function bezier(c1:Float, c2:Float, t:Float) {
+		var u = 1 - t;
+		return c1 * 3 * t * u * u + c2 * 3 * t * t * u + t * t * t;
+	}
+
+	override function interpolate( p : Float ) {
+		var minT = 0., maxT = 1., maxDelta = 0.001;
+		while( maxT - minT > maxDelta ) {
+			var t = (maxT + minT) * 0.5;
+			var x = bezier(c1x, c2x, t);
+			if( x > p )
+				maxT = t;
+			else
+				minT = t;
+		}
+
+		var x0 = bezier(c1x, c2x, minT);
+		var x1 = bezier(c1x, c2x, maxT);
+		var dx = x1 - x0;
+		var xfactor = dx == 0 ? 0.5 : (p - x0) / dx;
+
+		var y0 = bezier(c1y, c2y, minT);
+		var y1 = bezier(c1y, c2y, maxT);
+		return y0 + (y1 - y0) * xfactor;
+	}
+
+}
 
 class CssParser {
 
@@ -82,6 +143,15 @@ class CssParser {
 	var tokens : Array<Token>;
 	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
+
+	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
+	static var CURVES : Map<String,Curve> = [
+		"ease" => DEFAULT_CURVE,
+		"linear" => new Curve(),
+		"ease-in" => new BezierCurve(0.42, 0, 1.0, 1.0),
+		"ease-out" => new BezierCurve(0, 0, 0.58, 1.0),
+		"ease-in-out" => new BezierCurve(0, 0, 0.58, 1.0),
+	];
 
 	public function new() {
 	}
@@ -178,8 +248,64 @@ class CssParser {
 		}
 	}
 
+	function parseTransition( value : CssValue, pmin, pmax ) : Transition {
+		inline function warn(msg) {
+			warnings.push({ pmin : pmin, pmax : pmax, msg : msg });
+		}
+		var args = switch( value ) {
+		case VGroup(l): l;
+		default: [value];
+		}
+		if( args.length < 1 )
+			return null;
+		var pname = switch( args[0] ) {
+		case VIdent(name): name;
+		default:
+			warn("Invalid transition");
+			return null;
+		};
+		var p = Property.get(pname, false);
+		if( p == null ) {
+			warn("Unknown transition property "+pname);
+			return null;
+		}
+		@:privateAccess p.hasTransition = true;
+		var time = switch( args[1] ) {
+		case null: 1.;
+		case VUnit(v, "s"), VFloat(v): v;
+		case VInt(i): i;
+		default:
+			warn("Invalid transition time "+valueStr(args[1]));
+			return null;
+		}
+		var curve = DEFAULT_CURVE;
+		switch( args[2] ) {
+		case null:
+		case VIdent(name):
+			curve = CURVES.get(name);
+			if( curve == null ) {
+				warn("Unknown easing curve "+name);
+				curve = DEFAULT_CURVE;
+			}
+		case VCall("cubic-bezier",[a,b,c,d]):
+			inline function getVal(v) {
+				return switch( v ) {
+				case VFloat(f): f;
+				case VInt(i): i;
+				default: warn("Invalid value"); 0;
+				}
+			}
+			curve = new BezierCurve(getVal(a), getVal(b), getVal(c), getVal(d));
+		default:
+			warn("Unknown easing curve "+valueStr(args[2]));
+		}
+		if( args.length > 3 )
+			warn("Invalid argument "+valueStr(args[3]));
+		return { p : p, time : time, curve : curve };
+	}
+
 	function parseStyle( eof ) {
-		var style = [];
+		var rules = [], trans = null;
 		while( true ) {
 			if( isToken(eof) )
 				break;
@@ -188,15 +314,26 @@ class CssParser {
 			expect(TDblDot);
 			var value = readValue();
 			var p = Property.get(name, false);
-			if( p == null )
-				warnings.push({ pmin : start, pmax : pos, msg : "Unknown property "+name });
-			else
-				style.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos });
+			if( p == null ) {
+				if( name == "transition" ) {
+					if( trans == null ) trans = [];
+					var values = switch( value ) {
+					case VList(vl): vl;
+					default: [value];
+					}
+					for( value in values ) {
+						var t = parseTransition(value, start, pos);
+						if( t != null ) trans.push(t);
+					}
+				} else
+					warnings.push({ pmin : start, pmax : pos, msg : "Unknown property "+name });
+			} else
+				rules.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos });
 			if( isToken(eof) )
 				break;
 			expect(TSemicolon);
 		}
-		return style;
+		return { rules : rules, transitions : trans };
 	}
 
 	public function parseSheet( css : String ) : CssSheet {
@@ -211,7 +348,8 @@ class CssParser {
 				break;
 			var classes = readClasses();
 			expect(TBrOpen);
-			rules.push({ classes : classes, style : parseStyle(TBrClose) });
+			var style = parseStyle(TBrClose);
+			rules.push({ classes : classes, style : style.rules, transitions: style.transitions });
 			// removed unused components rules
 			for( c in classes.copy() )
 				if( c.className == "@" ) {

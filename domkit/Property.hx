@@ -11,6 +11,8 @@ class Property {
 	public var name(default,null) : String;
 	public var id(default,null) : Int;
 	@:allow(domkit.CssStyle) var tag : Int = 0;
+	@:allow(domkit.CssStyle) var transTag : Int = 0;
+	public var hasTransition(default,null) : Bool;
 
 	function new(name) {
 		this.id = ALL.length;

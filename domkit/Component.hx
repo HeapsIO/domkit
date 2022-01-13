@@ -7,6 +7,7 @@ class PropertyHandler<O,P> {
 	#if !macro
 	public var defaultValue(default,null) : P;
 	public var apply(default,null) : O -> P -> Void;
+	public var transition(default,null) : P -> P -> Float -> P;
 	#end
 
 	#if macro
@@ -14,6 +15,7 @@ class PropertyHandler<O,P> {
 	public var type : haxe.macro.Expr.ComplexType;
 	public var position : haxe.macro.Expr.Position;
 	public var parserExpr : haxe.macro.Expr;
+	public var transitionExpr : haxe.macro.Expr;
 	public var fieldName : String;
 	#end
 
@@ -59,9 +61,12 @@ class Component<BaseT,T> {
 		} while( true );
 	}
 
-	function addHandler<P>( p : String, parser : CssValue -> P, def : #if macro haxe.macro.Expr #else P #end, applyType : #if macro haxe.macro.Expr.ComplexType #else T -> P -> Void #end ) {
+	function addHandler<P>( p : String, parser : CssValue -> P, def : #if macro haxe.macro.Expr #else P #end, applyType : #if macro haxe.macro.Expr.ComplexType #else T -> P -> Void, ?transition #end ) {
 		var ph = new PropertyHandler(parser,def,applyType);
 		if( parent != null && propsHandler == cast parent.propsHandler ) propsHandler = propsHandler.copy();
+		#if !macro
+		@:privateAccess ph.transition = transition;
+		#end
 		propsHandler[Property.get(p).id] = ph;
 		return ph;
 	}

@@ -18,6 +18,8 @@ enum CssValue {
 
 class ValueParser {
 
+	var defaultColor = 0;
+
 	public function new() {
 	}
 
@@ -88,6 +90,14 @@ class ValueParser {
 				| (Std.int(clamp(g,0,255)) << 8)
 				| Std.int(clamp(b,0,255))
 				| (Std.int(clamp(a,0,1)*255) << 24);
+		case VCall("rgb", [r,g,b,a]):
+			var r = parseInt(r);
+			var g = parseInt(g);
+			var b = parseInt(b);
+			return (Std.int(clamp(r,0,255)) << 16)
+				| (Std.int(clamp(g,0,255)) << 8)
+				| Std.int(clamp(b,0,255))
+				| 0xFF000000;
 		case VIdent(i):
 			var c = CSS_COLORS.get(i);
 			if( c == null ) invalidProp();
@@ -95,6 +105,15 @@ class ValueParser {
 		default:
 			return invalidProp();
 		}
+	}
+
+	public function transitionColor( a : Null<Int>, b : Null<Int>, p : Float ) {
+		var a : Int = a == null ? defaultColor : a;
+		var b : Int = b == null ? defaultColor : b;
+		inline function lerp(a:Int,b:Int) {
+			return Std.int((b - a) * p) + a;
+		}
+		return lerp(a & 0xFF, b & 0xFF) | (lerp((a >> 8) & 0xFF, (b >> 8) & 0xFF) << 8) | (lerp((a >> 16) & 0xFF, (b >> 16) & 0xFF) << 16) | (lerp((a >>> 24) & 0xFF, (b >>> 24) & 0xFF) << 24);
 	}
 
 	static inline function clamp(f:Float,min:Float,max:Float) {

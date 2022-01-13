@@ -244,6 +244,20 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			default:
 			}
 
+		var trans = null;
+		for( m in f.meta )
+			if( m.name == ":t" && m.params.length > 0 ) {
+				switch( m.params[0].expr ) {
+				case EConst(CIdent(name)):
+					var fname = "transition"+componentNameToClass(name);
+					var meth = Reflect.field(this.parser,fname);
+					if( meth == null )
+						error(parserType.toString()+" has no field "+fname, m.params[0].pos);
+					trans = macro (parser.$fname : $t -> $t -> Float -> $t);
+				default:
+				}
+			}
+
 		if( prop == null ) {
 			prop = parserFromType(tt, f.pos, parserMode);
 			if( prop == null ) error("Unsupported type "+t.toString()+", use custom parser", f.pos);
@@ -264,6 +278,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		h.position = f.pos;
 		h.fieldName = f.name;
 		h.parserExpr = prop.expr;
+		h.transitionExpr = trans;
 	}
 
 	public static function componentNameToClass( name : String, isField = false ) {
@@ -414,7 +429,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var fname = h.fieldName;
 			var set = setters.exists(p.name) ? haxe.macro.MacroStringTools.toFieldExpr(classPath.concat(["set_"+fname])) : macro function(o:$baseType,v:$ptype) o.$fname = v;
 			var def = h.defaultValue == null ? macro null : h.defaultValue;
-			var expr = macro addHandler($v{p.name},@:privateAccess ${h.parserExpr},($def : $ptype),@:privateAccess $set);
+			var transExpr = h.transitionExpr == null ? macro null : macro @:privateAccess ${h.transitionExpr};
+			var expr = macro addHandler($v{p.name},@:privateAccess ${h.parserExpr},($def : $ptype),@:privateAccess $set,$transExpr);
 			setPosRec(expr,h.position);
 			setExprs.set(p.name, set);
 			handlers.push(expr);

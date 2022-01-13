@@ -11,15 +11,40 @@ class RuleStyle {
 	}
 }
 
+class RuleTransition {
+	public var p : Property;
+	public var time : Float;
+	public var curve : CssParser.Curve;
+	public var next : RuleTransition;
+	public function new(p, time, curve) {
+		this.p = p;
+		this.time = time;
+		this.curve = curve;
+	}
+}
+
 class Rule {
 	public var id : Int;
 	public var priority : Int;
 	public var cl : CssParser.CssClass;
 	public var style : Array<RuleStyle>;
+	public var transitions : Array<RuleTransition>;
 	public var next : Rule;
 	public function new() {
 	}
 }
+
+class CssTransition {
+	public var properties : Properties<Dynamic>;
+	public var trans : RuleTransition;
+	public var handler : Component.PropertyHandler<Dynamic,Dynamic>;
+	public var vstart : Dynamic;
+	public var vtarget : Dynamic;
+	public var progress : Float;
+	public function new() {
+	}
+}
+
 
 @:access(domkit.Properties)
 class CssStyle {
@@ -28,6 +53,7 @@ class CssStyle {
 
 	var rules : Array<Rule>;
 	var needSort = true;
+	var currentTransitions : Array<CssTransition> = [];
 
 	public function new() {
 		rules = [];
@@ -41,17 +67,65 @@ class CssStyle {
 	function onInvalidProperty( e : Properties<Dynamic>, s : RuleStyle, msg : String ) {
 	}
 
+	function addTransition( e : Properties<Dynamic>, trans : RuleTransition, h : Component.PropertyHandler<Dynamic,Dynamic>, vtarget : Dynamic ) {
+		if( e.transitionValues == null ) e.transitionValues = new Map();
+		var vstart : Dynamic = e.transitionValues.get(trans.p.id);
+		if( vstart == null ) vstart = h.defaultValue;
+		if( vtarget == null ) vtarget = h.defaultValue;
+		if( h.transition == null && !Std.is(vtarget == null ? vstart : vtarget,Float) )
+			throw "Cannot add transition on "+e.component.name+"."+trans.p.name+" : unsupported value "+Std.string(vtarget == null ? vstart : vtarget);
+		for( c in currentTransitions ) {
+			if( c.properties == e && c.trans.p == trans.p ) {
+				// return to same value ?
+				if( c.vstart == vtarget ) {
+					c.vstart = c.vtarget;
+					c.progress = 1 - c.progress;
+				} else {
+					c.vstart = vstart;
+					c.progress = 0; // reset progress (unknown "distance")
+				}
+				c.vtarget = vtarget;
+				return;
+			}
+		}
+		var t = new CssTransition();
+		t.properties = e;
+		t.handler = h;
+		t.trans = trans;
+		t.vstart = vstart;
+		t.vtarget = vtarget;
+		t.progress = 0;
+		e.transitionCount++;
+		currentTransitions.push(t);
+	}
+
 	function applyStyle( e : Properties<Dynamic>, force : Bool ) {
 		if( needSort ) {
 			needSort = false;
 			rules.sort(sortByPriority);
 		}
+
 		if( e.needStyleRefresh || force ) {
+			var firstInit = e.firstInit;
+			e.firstInit = false;
 			e.needStyleRefresh = false;
-			var head = null;
+			var head = null, transHead : RuleTransition = null;
 			var tag = ++TAG;
+			var prevTransCount = e.transitionCount;
 			for( p in e.style )
 				p.p.tag = tag;
+
+			inline function addTransition(p:Property,h,target:Dynamic) {
+				var t = transHead;
+				while( true ) {
+					if( t.p == p ) {
+						this.addTransition(e, t, h, target);
+						break;
+					}
+					t = t.next;
+				}
+			}
+
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
 				var match = false;
@@ -60,6 +134,15 @@ class CssStyle {
 						p.p.tag = tag;
 						match = true;
 					}
+				if( r.transitions != null ) {
+					for( t in r.transitions ) {
+						if( t.p.transTag != tag ) {
+							t.p.transTag = tag;
+							t.next = transHead;
+							transHead = t;
+						}
+					}
+				}
 				if( match ) {
 					r.next = head;
 					head = r;
@@ -78,7 +161,13 @@ class CssStyle {
 					e.currentSet.remove(p);
 					if( e.currentValues != null ) e.currentValues.splice(i+1,1);
 					var h = e.component.getHandler(p);
+					if( p.transTag == tag ) {
+						p.transTag = ntag;
+						addTransition(p, h, null);
+						continue;
+					}
 					h.apply(e.obj,h.defaultValue);
+					if( p.hasTransition ) e.transitionValues.set(p.id, null);
 				}
 			}
 			// apply new properties
@@ -91,6 +180,7 @@ class CssStyle {
 						onInvalidProperty(e, p, "Unsupported property");
 						continue;
 					}
+
 					if( p.lastHandler != h ) {
 						try {
 							var value = h.parser(p.value);
@@ -102,8 +192,21 @@ class CssStyle {
 							continue;
 						}
 					}
-					h.apply(e.obj, p.lastValue);
-					changed = true;
+
+					if( (pr.transTag == tag || pr.transTag == ntag) && !firstInit ) {
+						pr.transTag = ntag;
+						addTransition(pr, h, p.lastValue);
+					} else {
+						h.apply(e.obj, p.lastValue);
+						changed = true;
+
+						if( pr.hasTransition ) {
+							if( e.transitionValues == null ) e.transitionValues = new Map();
+							e.transitionValues.set(pr.id, p.lastValue);
+							pr.transTag = tag - 1;
+						}
+					}
+
 					if( pr.tag != ntag ) {
 						if( Properties.KEEP_VALUES ) {
 							e.initCurrentValues();
@@ -122,6 +225,32 @@ class CssStyle {
 				r.next = null;
 				r = n;
 			}
+
+			// cancel transitions that are no longer valid
+			if( prevTransCount > 0 ) {
+				var i = 0;
+				var max = currentTransitions.length;
+				while( i < max ) {
+					var c = currentTransitions[i++];
+					if( c.properties == e && c.trans.p.transTag != ntag ) {
+						currentTransitions.remove(c);
+						e.transitionCount--;
+						i--;
+						max--;
+						if( c.trans.p.tag != ntag )
+							e.transitionValues.set(c.trans.p.id, c.handler.defaultValue);
+					}
+				}
+			}
+
+			// transitions set on unset values : define default value
+			var t = transHead;
+			while( t != null ) {
+				if( t.p.transTag == tag && e.transitionValues != null )
+					e.transitionValues.set(t.p.id, null);
+				t = t.next;
+			}
+
 			// reapply style properties
 			if( changed )
 				for( p in e.style ) {
@@ -137,6 +266,32 @@ class CssStyle {
 			if( c.dom == null )
 				continue;
 			applyStyle(c.dom, force);
+		}
+	}
+
+	public function updateTime( dt : Float ) {
+		var i = 0;
+		var max = currentTransitions.length;
+		while( i < max ) {
+			var c = currentTransitions[i++];
+			c.progress += dt / c.trans.time;
+			var current : Dynamic = null;
+			if( c.progress > 1 ) {
+				c.progress = 1;
+				current = c.vtarget;
+				c.properties.transitionCount--;
+				currentTransitions.remove(c);
+				i--;
+				max--;
+			} else if( c.handler.transition != null )
+				current = c.handler.transition(c.vstart, c.vtarget, c.trans.curve.interpolate(c.progress));
+			else {
+				var vstart : Float = c.vstart;
+				var vtarget : Float = c.vtarget;
+				current = (vtarget - vstart) * c.trans.curve.interpolate(c.progress) + vstart;
+			}
+			c.handler.apply(c.properties.obj, current);
+			c.properties.transitionValues.set(c.trans.p.id, current);
 		}
 	}
 
@@ -180,14 +335,22 @@ class CssStyle {
 						rule.style.push(new RuleStyle(s.p,s.value));
 					}
 				rule.priority = priority;
+				if( r.transitions != null ) {
+					rule.transitions = [];
+					for( t in r.transitions )
+						rule.transitions.push(new RuleTransition(t.p, t.time, t.curve));
+				}
 				if( rule.style.length > 0 )
 					rules.push(rule);
 				if( important != null ) {
+					var tr = rule.transitions;
+					rule.transitions = null;
 					var rule = new Rule();
 					rule.id = rules.length;
 					rule.cl = cl;
 					rule.style = important;
 					rule.priority = priority + (1 << 30);
+					rule.transitions = tr;
 					rules.push(rule);
 				}
 			}
