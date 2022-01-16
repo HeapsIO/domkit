@@ -72,7 +72,7 @@ class CssStyle {
 		var vstart : Dynamic = e.transitionValues.get(trans.p.id);
 		if( vstart == null ) vstart = h.defaultValue;
 		if( vtarget == null ) vtarget = h.defaultValue;
-		if( h.transition == null && !Std.is(vtarget == null ? vstart : vtarget,Float) )
+		if( h.transition == null && !Std.isOfType(vtarget == null ? vstart : vtarget,Float) )
 			throw "Cannot add transition on "+e.component.name+"."+trans.p.name+" : unsupported value "+Std.string(vtarget == null ? vstart : vtarget);
 		for( c in currentTransitions ) {
 			if( c.properties == e && c.trans.p == trans.p ) {
