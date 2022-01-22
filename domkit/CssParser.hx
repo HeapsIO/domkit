@@ -35,9 +35,10 @@ enum abstract PseudoClass(Int) {
 	var Odd = 8;
 	var Even = 16;
 	var Active = 32;
+	var Disabled = 64;
 
 	// set for some flags requiring children checks
-	var NeedChildren = 64;
+	var NeedChildren = 128;
 
 	inline function new(v:Int) {
 		this = v;
@@ -452,6 +453,8 @@ class CssParser {
 						switch( i ) {
 						case "hover":
 							c.pseudoClasses |= HOver;
+						case "disabled":
+							c.pseudoClasses |= Disabled;
 						case "first-child":
 							c.pseudoClasses |= FirstChild;
 							c.pseudoClasses |= NeedChildren;
