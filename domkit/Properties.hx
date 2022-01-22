@@ -140,7 +140,6 @@ class Properties<T:Model<T>> {
 		return disabled = b;
 	}
 
-
 	function initStyle( p : String, value : Dynamic ) {
 		style.push({ p : Property.get(p), value : value });
 		needRefresh();
