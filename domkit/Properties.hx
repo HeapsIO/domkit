@@ -24,6 +24,7 @@ class Properties<T:Model<T>> {
 	public var component(default,null) : Component<T,Dynamic>;
 	public var hover(default,set) : Bool = false;
 	public var active(default,set) : Bool = false;
+	public var disabled(default,set) : Bool = false;
 	public var parent(get,never) : Properties<T>;
 	public var contentRoot(default,null) : Model<T>;
 
@@ -131,6 +132,12 @@ class Properties<T:Model<T>> {
 		if( active == b ) return b;
 		needRefresh();
 		return active = b;
+	}
+
+	function set_disabled(b) {
+		if( disabled == b ) return b;
+		needRefresh();
+		return disabled = b;
 	}
 
 	function initStyle( p : String, value : Dynamic ) {

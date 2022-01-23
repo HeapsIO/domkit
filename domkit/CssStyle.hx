@@ -366,6 +366,8 @@ class CssStyle {
 				return false;
 			if( c.pseudoClasses.has(Active) && !e.active )
 				return false;
+			if( c.pseudoClasses.has(Disabled) && !e.disabled )
+				return false;
 			if( c.pseudoClasses.has(NeedChildren) ) {
 				var parent = e.parent;
 				if( parent == null )
