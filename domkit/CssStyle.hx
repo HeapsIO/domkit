@@ -45,15 +45,79 @@ class CssTransition {
 	}
 }
 
+#if hl
+@:forward(fill)
+abstract FastBytes(hl.Bytes) to hl.Bytes {
+	public inline function get(index) return this.getUI8(index);
+	public inline function set(index,value) this.setUI8(index, value);
+	public inline function sub(index,len) : FastBytes return cast this.sub(index, len);
+	@:from public static inline function fromBytes(bytes:haxe.io.Bytes) : FastBytes {
+		return cast @:privateAccess bytes.b;
+	}
+}
 
-@:access(domkit.Properties)
-class CssStyle {
+class BytesCell<T> {
+	public var bytes : hl.Bytes;
+	public var value : T;
+	public var next : BytesCell<T>;
+	public function new(bytes,value,next) {
+		this.bytes = bytes;
+		this.value = value;
+		this.next = next;
+	}
+}
 
-	static var TAG = 0;
+abstract BytesMap<T>(Map<Int,BytesCell<T>>) {
 
-	var rules : Array<Rule>;
-	var needSort = true;
-	var currentTransitions : Array<CssTransition> = [];
+	static var BUF = new hl.Bytes(4);
+
+	public function new() {
+		this = [];
+	}
+
+	inline function makeHash( bytes : hl.Bytes, len : Int ) {
+		var buf = BUF;
+		hl.Format.digest(buf,bytes,len,3);
+		return buf.getI32(0);
+	}
+
+	public inline function get( bytes : hl.Bytes, len : Int ) {
+		var h = makeHash(bytes, len);
+		var c = this.get(h);
+		var value = null;
+		while( c != null ) {
+			if( c.bytes.compare(0, bytes, 0, len) == 0 ) {
+				value = c.value;
+				break;
+			}
+			c = c.next;
+		}
+		return value;
+	}
+
+	public inline function set( bytes : hl.Bytes, len : Int, value ) {
+		var h = makeHash(bytes, len);
+		var c = new BytesCell(bytes.sub(0,len), value, this.get(h));
+		this.set(h, c);
+	}
+
+}
+#else
+
+typedef FastBytes = haxe.io.Bytes;
+
+#end
+
+class CssData {
+
+	public static var CID = 0;
+	public static var COMPONENTS = [];
+
+	public var rules : Array<Rule>;
+	public var bytesSize : Int;
+	public var needsInit = false;
+
+	var rulesByComp : #if hl BytesMap<Array<Rule>> #else Map<String,Array<Rule>> #end;
 
 	public function new() {
 		rules = [];
@@ -62,6 +126,118 @@ class CssStyle {
 	function sortByPriority(r1:Rule, r2:Rule) {
 		var dp = r2.priority - r1.priority;
 		return dp == 0 ? r2.id - r1.id : dp;
+	}
+
+	public function init() {
+		if( needsInit ) {
+			needsInit = false;
+			rules.sort(sortByPriority);
+			// attribute component ids
+			for( r in rules ) {
+				var cl = r.cl;
+				while( cl != null ) {
+					if( cl.component != null && cl.component.id < 0 ) {
+						COMPONENTS.push(cl.component);
+						cl.component.id = CID++;
+					}
+					cl = cl.parent;
+				}
+			}
+			bytesSize = -1;
+		}
+		var reqSize = (CssData.CID + 7) & ~7;
+		if( reqSize > bytesSize ) {
+			bytesSize = reqSize;
+			rulesByComp = #if hl new BytesMap() #else new Map() #end;
+		}
+	}
+
+	public inline function getCache( bits : FastBytes ) : Array<Rule> {
+		return rulesByComp.get(#if hl bits, bytesSize #else bits.toHex() #end);
+	}
+
+	public inline function setCache( bits : FastBytes, value : Array<Rule> ) {
+		rulesByComp.set(#if hl bits, bytesSize #else bits.toHex() #end, value);
+	}
+
+	public function add( sheet : CssParser.CssSheet ) {
+		for( r in sheet ) {
+			for( cl in r.classes ) {
+				var nids = 0, nothers = 0, nnodes = 0;
+				var c = cl;
+				while( c != null ) {
+					if( c.id != null ) nids++;
+					if( c.component != null ) {
+						nnodes += 32;
+						var k = c.component.parent;
+						while( k != null ) {
+							nnodes++;
+							k = k.parent;
+						}
+					}
+					if( c.pseudoClasses != None ) {
+						var i = c.pseudoClasses.toInt();
+						while( i != 0 ) {
+							if( i & 1 != 0 ) nothers++;
+							i >>>= 1;
+						}
+					}
+					if( c.className != null ) nothers++;
+					c = c.parent;
+				}
+				var priority = (nids << 24) | (nothers << 17) | nnodes;
+				var important = null;
+				var rule = new Rule();
+				rule.id = rules.length;
+				rule.cl = cl;
+				rule.style = [];
+				for( s in r.style )
+					switch( s.value ) {
+					case VLabel("important", val):
+						if( important == null ) important = [];
+						important.push(new RuleStyle(s.p,val));
+					default:
+						rule.style.push(new RuleStyle(s.p,s.value));
+					}
+				rule.priority = priority;
+				if( r.transitions != null ) {
+					rule.transitions = [];
+					for( t in r.transitions )
+						rule.transitions.push(new RuleTransition(t.p, t.time, t.curve));
+				}
+				if( rule.style.length > 0 )
+					rules.push(rule);
+				if( important != null ) {
+					var tr = rule.transitions;
+					rule.transitions = null;
+					var rule = new Rule();
+					rule.id = rules.length;
+					rule.cl = cl;
+					rule.style = important;
+					rule.priority = priority + (1 << 30);
+					rule.transitions = tr;
+					rules.push(rule);
+				}
+			}
+		}
+		needsInit = true;
+	}
+
+}
+
+@:access(domkit.Properties)
+class CssStyle {
+
+	static var TAG = 0;
+
+	public var data : CssData;
+	public var useSmartCache = true;
+	var currentTransitions : Array<CssTransition> = [];
+	var componentsBits : FastBytes;
+	var compSize : Int;
+
+	public function new() {
+		data = new CssData();
 	}
 
 	function onInvalidProperty( e : Properties<Dynamic>, s : RuleStyle, msg : String ) {
@@ -99,10 +275,93 @@ class CssStyle {
 		currentTransitions.push(t);
 	}
 
+	inline function setCompBit( id : Int ) {
+		if( id < 0 )
+			return -1;
+		var pos = id >> 3;
+		var v = componentsBits.get(pos);
+		var msk = 1 << (id & 7);
+		if( (v & msk) == 0 ) {
+			componentsBits.set(pos,v | msk);
+			return v;
+		}
+		return -1;
+	}
+
+	function getCurrentRules() {
+		var rules = data.getCache(componentsBits);
+		if( rules == null ) {
+			// complete bits with superclasses
+			var prev = componentsBits;
+			var change = false;
+			for( c in CssData.COMPONENTS ) {
+				if( componentsBits.get(c.id>>3)&(1<<(c.id&7)) != 0 ) {
+					var p = c.parent;
+					while( p != null ) {
+						var v = setCompBit(p.id);
+						if( v >= 0 && !change ) {
+							change = true;
+							prev = componentsBits.sub(0, compSize);
+							prev.set(p.id>>3, v);
+						}
+						p = p.parent;
+					}
+				}
+			}
+			if( change )
+				rules = data.getCache(componentsBits);
+			if( rules == null ) {
+				rules = [];
+				for( r in data.rules ) {
+					var cl = r.cl;
+					var ignore = false;
+					while( cl != null ) {
+						if( cl.component != null ) {
+							var id = cl.component.id;
+							if( componentsBits.get(id>>3)&(1<<(id&7)) == 0 ) {
+								ignore = true;
+								break;
+							}
+						}
+						cl = cl.parent;
+					}
+					if( ignore ) continue;
+					rules.push(r);
+				}
+				if( change )
+					data.setCache(componentsBits,rules);
+			}
+			componentsBits = prev;
+			data.setCache(componentsBits,rules);
+		}
+		return rules;
+	}
+
 	function applyStyle( e : Properties<Dynamic>, force : Bool ) {
-		if( needSort ) {
-			needSort = false;
-			rules.sort(sortByPriority);
+		data.init();
+		if( !useSmartCache ) {
+			applyStyleRec(e, force, data.rules);
+			return;
+		}
+		if( compSize < data.bytesSize ) {
+			compSize = data.bytesSize;
+			componentsBits = haxe.io.Bytes.alloc(compSize);
+		}
+		componentsBits.fill(0,compSize,0);
+		var cur = e.parent;
+		while( cur != null ) {
+			setCompBit(cur.component.id);
+			cur = cur.parent;
+		}
+		applyStyleRec(e, force, null);
+	}
+
+	function applyStyleRec( e : Properties<Dynamic>, force : Bool, rules : Array<Rule> ) {
+
+		var prev = -1;
+		if( useSmartCache ) {
+			prev = setCompBit(e.component.id);
+			if( prev >= 0 ) rules = null;
 		}
 
 		if( e.needStyleRefresh || force ) {
@@ -126,6 +385,9 @@ class CssStyle {
 				}
 			}
 
+			if( rules == null )
+				rules = getCurrentRules();
+
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
 				var match = false;
@@ -148,6 +410,20 @@ class CssStyle {
 					head = r;
 				}
 			}
+
+			/*
+			// debug check that the filtering doesn't forget any rule
+			for( r in this.rules ) {
+				if( ruleMatch(r.cl,e) && rules.indexOf(r) < 0 ) {
+					var comps = [];
+					for( id in 0...CID ) {
+						if( componentsBits.get(id>>3)&(1<<(id&7)) != 0 )
+							comps.push(COMPONENTS[id]);
+					}
+					throw "assert";
+				}
+			}*/
+
 			// reset to default previously set properties that are no longer used
 			var changed = false;
 			var ntag = ++TAG;
@@ -265,8 +541,11 @@ class CssStyle {
 			var c : Model<Dynamic> = c;
 			if( c.dom == null )
 				continue;
-			applyStyle(c.dom, force);
+			applyStyleRec(c.dom, force, rules);
 		}
+
+		if( prev >= 0 )
+			componentsBits.set(e.component.id >> 3, prev);
 	}
 
 	public function updateTime( dt : Float ) {
@@ -296,66 +575,7 @@ class CssStyle {
 	}
 
 	public function add( sheet : CssParser.CssSheet ) {
-		for( r in sheet ) {
-			for( cl in r.classes ) {
-				var nids = 0, nothers = 0, nnodes = 0;
-				var c = cl;
-				while( c != null ) {
-					if( c.id != null ) nids++;
-					if( c.component != null ) {
-						nnodes += 32;
-						var k = c.component.parent;
-						while( k != null ) {
-							nnodes++;
-							k = k.parent;
-						}
-					}
-					if( c.pseudoClasses != None ) {
-						var i = c.pseudoClasses.toInt();
-						while( i != 0 ) {
-							if( i & 1 != 0 ) nothers++;
-							i >>>= 1;
-						}
-					}
-					if( c.className != null ) nothers++;
-					c = c.parent;
-				}
-				var priority = (nids << 24) | (nothers << 17) | nnodes;
-				var important = null;
-				var rule = new Rule();
-				rule.id = rules.length;
-				rule.cl = cl;
-				rule.style = [];
-				for( s in r.style )
-					switch( s.value ) {
-					case VLabel("important", val):
-						if( important == null ) important = [];
-						important.push(new RuleStyle(s.p,val));
-					default:
-						rule.style.push(new RuleStyle(s.p,s.value));
-					}
-				rule.priority = priority;
-				if( r.transitions != null ) {
-					rule.transitions = [];
-					for( t in r.transitions )
-						rule.transitions.push(new RuleTransition(t.p, t.time, t.curve));
-				}
-				if( rule.style.length > 0 )
-					rules.push(rule);
-				if( important != null ) {
-					var tr = rule.transitions;
-					rule.transitions = null;
-					var rule = new Rule();
-					rule.id = rules.length;
-					rule.cl = cl;
-					rule.style = important;
-					rule.priority = priority + (1 << 30);
-					rule.transitions = tr;
-					rules.push(rule);
-				}
-			}
-		}
-		needSort = true;
+		data.add(sheet);
 	}
 
 	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
