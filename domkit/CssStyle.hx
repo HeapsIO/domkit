@@ -133,6 +133,7 @@ class CssData {
 			needsInit = false;
 			rules.sort(sortByPriority);
 			// attribute component ids
+			var prev = COMPONENTS.length;
 			for( r in rules ) {
 				var cl = r.cl;
 				while( cl != null ) {
@@ -141,6 +142,16 @@ class CssData {
 						cl.component.id = CID++;
 					}
 					cl = cl.parent;
+				}
+			}
+			// add all children
+			while( prev < COMPONENTS.length ) {
+				var c = COMPONENTS[prev++];
+				for( c2 in @:privateAccess Component.COMPONENTS ) {
+					if( c2.parent == c && c2.id < 0 ) {
+						COMPONENTS.push(c2);
+						c2.id = CID++;
+					}
 				}
 			}
 			bytesSize = -1;
@@ -413,12 +424,12 @@ class CssStyle {
 
 			/*
 			// debug check that the filtering doesn't forget any rule
-			for( r in this.rules ) {
+			for( r in data.rules ) {
 				if( ruleMatch(r.cl,e) && rules.indexOf(r) < 0 ) {
 					var comps = [];
-					for( id in 0...CID ) {
+					for( id in 0...CssData.CID ) {
 						if( componentsBits.get(id>>3)&(1<<(id&7)) != 0 )
-							comps.push(COMPONENTS[id]);
+							comps.push(CssData.COMPONENTS[id]);
 					}
 					throw "assert";
 				}
