@@ -114,7 +114,7 @@ class CssData {
 	public static var COMPONENTS = [];
 
 	public var rules : Array<Rule>;
-	public var bytesSize : Int;
+	public var bytesSize : Int = 0;
 	public var needsInit = false;
 
 	var rulesByComp : #if hl BytesMap<Array<Rule>> #else Map<String,Array<Rule>> #end;
@@ -245,7 +245,7 @@ class CssStyle {
 	public var useSmartCache = true;
 	var currentTransitions : Array<CssTransition> = [];
 	var componentsBits : FastBytes;
-	var compSize : Int;
+	var compSize : Int = 0;
 
 	public function new() {
 		data = new CssData();
