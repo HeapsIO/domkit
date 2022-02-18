@@ -246,6 +246,7 @@ class CssStyle {
 	var currentTransitions : Array<CssTransition> = [];
 	var componentsBits : FastBytes;
 	var compSize : Int = 0;
+	var inApply = false;
 
 	public function new() {
 		data = new CssData();
@@ -358,13 +359,23 @@ class CssStyle {
 			compSize = data.bytesSize;
 			componentsBits = haxe.io.Bytes.alloc(compSize);
 		}
-		componentsBits.fill(0,compSize,0);
+		var prevApply = inApply;
+		var prevBits = null;
+		if( prevApply ) {
+			prevBits = componentsBits;
+			componentsBits = haxe.io.Bytes.alloc(compSize);
+		} else
+			componentsBits.fill(0,compSize,0);
 		var cur = e.parent;
 		while( cur != null ) {
 			setCompBit(cur.component.id);
 			cur = cur.parent;
 		}
+		this.inApply = true;
 		applyStyleRec(e, force, null);
+		this.inApply = prevApply;
+		if( prevApply )
+			componentsBits = prevBits;
 	}
 
 	function applyStyleRec( e : Properties<Dynamic>, force : Bool, rules : Array<Rule> ) {
