@@ -77,6 +77,7 @@ abstract BytesMap<T>(Map<Int,BytesCell<T>>) {
 
 	inline function makeHash( bytes : hl.Bytes, len : Int ) {
 		var buf = BUF;
+		buf.fill(0, 4, 0);
 		hl.Format.digest(buf,bytes,len,3);
 		return buf.getI32(0);
 	}
@@ -156,7 +157,7 @@ class CssData {
 			}
 			bytesSize = -1;
 		}
-		var reqSize = (CssData.CID + 7) & ~7;
+		var reqSize = (CssData.CID >> 3) + 1;
 		if( reqSize > bytesSize ) {
 			bytesSize = reqSize;
 			rulesByComp = #if hl new BytesMap() #else new Map() #end;
