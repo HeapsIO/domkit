@@ -196,18 +196,20 @@ class Properties<T:Model<T>> {
 		needRefresh();
 	}
 
+	public function setId( id : String ) {
+		if( this.id == id ) return;
+		this.id = id;
+		updateComponentId(this);
+		needRefresh();
+	}
+
 	public function setAttribute( p : String, value : CssValue ) : SetAttributeResult {
 		var p = Property.get(p,false);
 		if( p == null )
 			return Unknown;
 		if( p.id == pid.id ) {
 			switch( value ) {
-			case VIdent(i):
-				if( id != i ) {
-					id = i;
-					updateComponentId(this);
-					needRefresh();
-				}
+			case VIdent(i): setId(i);
 			default: return InvalidValue();
 			}
 			return Ok;
