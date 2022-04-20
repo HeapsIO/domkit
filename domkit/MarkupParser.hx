@@ -77,6 +77,8 @@ class MarkupParser {
 	var fileName : String;
 	var filePos : Int;
 
+	public var allowRawText : Bool = false;
+
 	public function new() {
 	}
 
@@ -154,33 +156,42 @@ class MarkupParser {
 		function emitCode() {
 			var fullText = buf.toString();
 			var text = StringTools.trim(fullText);
-			if( text.length > 0 ) {
-				start += fullText.indexOf(text);
-				if( r_prefix.match(text) ) {
-					switch( r_prefix.matched(1) ) {
-					case "for":
-						var cond = r_prefix.matchedRight();
-						var isBlock = false;
-						if( StringTools.endsWith(cond,"{") ) {
-							isBlock = true;
-							cond = cond.substr(0,-1);
-						}
-						var obj = {
-							kind : For(cond),
-							pmin : start,
-							pmax : start + text.length,
-							children : [],
-						};
-						addChild(obj);
-						currentLoop = { prevLoop : currentLoop, isBlock : isBlock, obj : obj };
-						return;
+			if( text.length == 0 )
+				return;
+			start += fullText.indexOf(text);
+			if( r_prefix.match(text) ) {
+				switch( r_prefix.matched(1) ) {
+				case "for":
+					var cond = r_prefix.matchedRight();
+					var isBlock = false;
+					if( StringTools.endsWith(cond,"{") ) {
+						isBlock = true;
+						cond = cond.substr(0,-1);
 					}
-				} else if( text == "}" && currentLoop != null && currentLoop.isBlock ) {
-					currentLoop = currentLoop.prevLoop;
+					var obj = {
+						kind : For(cond),
+						pmin : start,
+						pmax : start + text.length,
+						children : [],
+					};
+					addChild(obj);
+					currentLoop = { prevLoop : currentLoop, isBlock : isBlock, obj : obj };
 					return;
 				}
-				error("Unsupported code block", start, start + text.length);
+			} else if( text == "}" && currentLoop != null && currentLoop.isBlock ) {
+				currentLoop = currentLoop.prevLoop;
+				return;
 			}
+			if( !allowRawText ) {
+				error("Unsupported code block", start, start + text.length);
+				return;
+			}
+			addChild({
+				kind : Text(text),
+				pmin : start,
+				pmax : start + text.length,
+				children : [],
+			});
 		}
 		inline function addNodeArg(last) {
 			var base = str.substr(start, p - start);
