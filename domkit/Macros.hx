@@ -2,8 +2,11 @@ package domkit;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.Type;
 import domkit.Error;
+
 using haxe.macro.Tools;
+using haxe.macro.ExprTools;
 
 typedef ComponentData = {
 	var declaredIds : Map<String,Bool>;
@@ -25,6 +28,10 @@ class Macros {
 	static var RESOLVED_COMPONENTS = new Map();
 
 	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
+		return null;
+	}
+	
+	public static dynamic function processBind( e : haxe.macro.Expr ) : haxe.macro.Expr {
 		return null;
 	}
 
@@ -104,9 +111,46 @@ class Macros {
 		}
 	}
 
+	static function remapBind( rootExpr : haxe.macro.Expr ) {
+		var isBound = false;
+		var bname:String = null;
+		var bindExprs:Array<haxe.macro.Expr> = [];
+		function _remap(e : haxe.macro.Expr) {
+			switch( e.expr ) {
+				case EMeta(m, group) if( m.name == "bind" ):
+					if(m.params.length > 0)
+						switch(m.params[0].expr) {
+							case EConst(CIdent(name)):
+								bname = name;
+							default:
+						}
+					isBound = true;
+					_remap(group);
+					e.expr = group.expr;
+					return;
+				case EConst(CIdent(name)) if(isBound):
+					var b = macro domkit.Macros.bindVar($i{name});
+					bindExprs.push(b);
+					return;
+				case EField(obj, name) if(isBound):
+					var b = macro domkit.Macros.bindVar($obj.$name);
+					bindExprs.push(b);
+					return;
+				default:
+			}
+			e.iter(_remap);
+		}
+		_remap(rootExpr);
+		return {
+			isBound: isBound,
+			name: bname,
+			exprs: bindExprs
+		};
+	}
+	
 	static var latestBlock : Array<Expr> = null;
 
-	static function remapBuild( e : haxe.macro.Expr ) {
+	static function remapBuild( e : haxe.macro.Expr) {
 		switch( e.expr ) {
 		case EMeta(m, expr) if( m.name == "rebuild" ):
 			switch( expr.expr ) {
@@ -261,10 +305,23 @@ class Macros {
 						} else
 							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
 					} else {
-						aexprs.push(macro var __attrib = $e);
+						var binding = remapBind(e);
 						var eattrib = { expr : EConst(CIdent("__attrib")), pos : e.pos };
-						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
-						aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+						var setter = { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos };
+						aexprs.push(macro {
+							function __onVarChanged() {
+								var __attrib = $e;
+								@:privateAccess $setter;
+								@:privateAccess tmp.initStyle($v{p.name},$eattrib);
+							}
+							$b{binding.exprs};
+							$e{
+								if(binding.isBound)
+									macro registerBind(__onVarChanged, $v{binding.name})
+								else macro {}
+							}
+							__onVarChanged();
+						});
 					}
 				}
 			}
@@ -615,4 +672,7 @@ class Macros {
 
 	#end
 
+	public static macro function bindVar(e : haxe.macro.Expr) : haxe.macro.Expr {
+		return processBind(e);
+	}
 }
