@@ -605,7 +605,7 @@ class CssStyle {
 		if( c.id != null && c.id != e.id )
 			return false;
 		if( c.pseudoClasses != None ) {
-			if( c.pseudoClasses.has(HOver) && !e.hover )
+			if( c.pseudoClasses.has(Hover) && !e.hover )
 				return false;
 			if( c.pseudoClasses.has(Active) && !e.active )
 				return false;

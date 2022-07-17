@@ -29,7 +29,7 @@ enum Token {
 enum abstract PseudoClass(Int) {
 
 	var None = 0;
-	var HOver = 1;
+	var Hover = 1;
 	var FirstChild = 2;
 	var LastChild = 4;
 	var Odd = 8;
@@ -453,7 +453,7 @@ class CssParser {
 					case TDblDot:
 						switch( i ) {
 						case "hover":
-							c.pseudoClasses |= HOver;
+							c.pseudoClasses |= Hover;
 						case "disabled":
 							c.pseudoClasses |= Disabled;
 						case "first-child":
