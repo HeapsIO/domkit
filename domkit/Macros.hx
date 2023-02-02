@@ -228,6 +228,13 @@ class Macros {
 						var field = attr.name;
 						var fpos = makePos(e.pos, attr.pmin, attr.pmin + attr.name.length);
 						var expr = { expr : EBinop(OpAssign,{ expr : EField(macro __this__,field), pos : fpos },e), pos : fpos };
+						switch( e.expr ) {
+						case EMeta({ name : "bind" }, e):
+							expr = macro registerBind(() -> $expr);
+						case EMeta({ name : name }, _) if( name.charCodeAt(0) != ':'.code ):
+							error("Unknown metadata @"+name, attr.pmin, attr.pmin + attr.name.length);
+						default:
+						}
 						aexprs.push(expr);
 					default:
 						if( p == null )
@@ -261,10 +268,21 @@ class Macros {
 						} else
 							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
 					} else {
-						aexprs.push(macro var __attrib = $e);
+						var exprs = [];
+						exprs.push(macro var __attrib = $e);
 						var eattrib = { expr : EConst(CIdent("__attrib")), pos : e.pos };
-						aexprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
-						aexprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+						exprs.push({ expr : EMeta({ pos : e.pos, name : ":privateAccess" }, { expr : ECall(withPos(eset,e.pos),[macro cast tmp.obj,eattrib]), pos : e.pos }), pos : e.pos });
+						exprs.push(macro @:privateAccess tmp.initStyle($v{p.name},$eattrib));
+
+						switch( e.expr ) {
+						case EMeta({ name : "bind" }, e):
+							exprs = [macro registerBind(() -> $b{exprs})];
+						case EMeta({ name : name }, _) if( name.charCodeAt(0) != ':'.code ):
+							error("Unknown metadata @"+name, attr.pmin, attr.pmin + attr.name.length);
+						default:
+						}
+						for( e in exprs )
+							aexprs.push(e);
 					}
 				}
 			}
