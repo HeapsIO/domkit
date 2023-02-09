@@ -582,7 +582,7 @@ class MarkupParser {
 						else switch( parent.kind ) {
 						case Node(name) if( v == name ): // ok
 						case Node(name):
-							error("Unclosed node", parent.pmin, parent.pmax);
+							error("Unclosed node <" + name + ">", parent.pmin - filePos, parent.pmax - filePos);
 						default:
 							ok = false;
 						}
