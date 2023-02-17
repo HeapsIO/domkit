@@ -506,6 +506,13 @@ class Macros {
 				case FFun(f):
 					function replace( e : Expr ) {
 						switch( e.expr ) {
+						case ECall({ expr: EField({ pos: pos, expr : EConst(CIdent("super")) }, fn) }, _) if( initFunc != "new" ):
+							if (found != null && fn == initFunc)
+								Context.reportError("Calling super." + initFunc + "() after initComponent()", pos);
+						case ECall({ expr : EConst(CIdent("super")), pos: pos }, _) if ( initFunc == "new" ):
+							if (found != null)
+								Context.reportError("Calling super() after initComponent()", pos);
+
 						case ECall({ expr : EConst(CIdent("initComponent")) },[]):
 							// we don't generate an override initComponent method
 							// because it needs to access constructor variables - so we directly inline it
