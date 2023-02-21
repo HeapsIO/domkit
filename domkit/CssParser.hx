@@ -29,16 +29,17 @@ enum Token {
 enum abstract PseudoClass(Int) {
 
 	var None = 0;
-	var HOver = 1;
+	var Hover = 1;
 	var FirstChild = 2;
 	var LastChild = 4;
 	var Odd = 8;
 	var Even = 16;
 	var Active = 32;
 	var Disabled = 64;
+	var Focus = 128;
 
 	// set for some flags requiring children checks
-	var NeedChildren = 128;
+	var NeedChildren = 256;
 
 	inline function new(v:Int) {
 		this = v;
@@ -452,7 +453,7 @@ class CssParser {
 					case TDblDot:
 						switch( i ) {
 						case "hover":
-							c.pseudoClasses |= HOver;
+							c.pseudoClasses |= Hover;
 						case "disabled":
 							c.pseudoClasses |= Disabled;
 						case "first-child":
@@ -469,6 +470,8 @@ class CssParser {
 							c.pseudoClasses |= NeedChildren;
 						case "active":
 							c.pseudoClasses |= Active;
+						case "focus":
+							c.pseudoClasses |= Focus;
 						default:
 							throw new Error("Unknown selector "+i, pos - i.length - 1, pos);
 						}
