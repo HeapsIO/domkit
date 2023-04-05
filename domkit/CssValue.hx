@@ -200,9 +200,10 @@ class ValueParser {
 		var h = new Map();
 		var all = [];
 		for( v in e.createAll() ) {
-			var id = v.getName().toLowerCase();
+			var id = CssParser.haxeToCss(v.getName());
 			h.set(id, v);
 			all.push(id);
+			h.set(v.getName().toLowerCase(), v);
 		}
 		var choices = all.join("|");
 		return function( v : CssValue ) {

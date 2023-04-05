@@ -335,13 +335,14 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			default:
 			}
 		case TEnum(en,_):
-			var idents = [for( n in en.get().names ) n.toLowerCase()];
+			var idents = [for( n in en.get().names ) CssParser.haxeToCss(n)];
+			var fallback = [for( n in en.get().names ) n.toLowerCase()];
 			var enexpr = makeTypeExpr(en.get(), pos);
 			return {
 				expr : macro parser.makeEnumParser($enexpr),
 				value : function(css:CssValue) {
 					return switch( css ) {
-					case VIdent(i) if( idents.indexOf(i) >= 0 ): true;
+					case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
 					case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
 					default: parser.invalidProp();
 					}
