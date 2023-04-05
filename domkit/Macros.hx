@@ -346,6 +346,7 @@ class Macros {
 							pos : makePos(pos, a.pmin, a.pmax),
 							kind : FVar(ct),
 						});
+						data.inits.push(macro this.$field = null);
 					}
 				}
 			for( e in aexprs )
