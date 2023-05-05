@@ -152,7 +152,7 @@ class CssParser {
 		"linear" => new Curve(),
 		"ease-in" => new BezierCurve(0.42, 0, 1.0, 1.0),
 		"ease-out" => new BezierCurve(0, 0, 0.58, 1.0),
-		"ease-in-out" => new BezierCurve(0, 0, 0.58, 1.0),
+		"ease-in-out" => new BezierCurve(0.42, 0, 0.58, 1.0),
 	];
 
 	public function new() {
