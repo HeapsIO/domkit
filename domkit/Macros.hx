@@ -530,7 +530,7 @@ class Macros {
 						meta : a.opt ? [{name:":optional",pos:cl.pos}] : null }
 					]);
 					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],cl.pos);
-					if( found == null )
+					if( found == null && !Context.defined("display") )
 						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
 				default:
