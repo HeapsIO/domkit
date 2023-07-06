@@ -19,6 +19,7 @@ enum ParserMode {
 
 class MetaComponent extends Component<Dynamic,Dynamic> {
 
+	#if macro
 	public var baseType : ComplexType;
 	public var parserType : ComplexType;
 	public var setExprs : Map<String, Expr> = new Map();
@@ -468,4 +469,5 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return macro : domkit.$name;
 	}
 
+	#end
 }

@@ -235,6 +235,10 @@ class CssData {
 		needsInit = true;
 	}
 
+	public function clear() {
+		rules.resize(0);
+		needsInit = true;
+	}
 }
 
 @:access(domkit.Properties)
@@ -599,6 +603,9 @@ class CssStyle {
 
 	public function add( sheet : CssParser.CssSheet ) {
 		data.add(sheet);
+	}
+	public function clear() {
+		data.clear();
 	}
 
 	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
