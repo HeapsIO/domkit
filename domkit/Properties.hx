@@ -84,6 +84,8 @@ class Properties<T:Model<T>> {
 	}
 
 	public function addClass( c : String ) {
+		if( c == null )
+			return;
 		if( classes == null )
 			classes = [];
 		var c = new Identifier(c);
@@ -102,7 +104,7 @@ class Properties<T:Model<T>> {
 	}
 
 	public function removeClass( c : String ) {
-		if( classes == null )
+		if( classes == null || c == null )
 			return;
 		var c = new Identifier(c);
 		if( classes.remove(c) ) {
@@ -112,6 +114,8 @@ class Properties<T:Model<T>> {
 	}
 
 	public function toggleClass( c : String, ?b : Bool ) {
+		if( c == null )
+			return;
 		if( b == null ) {
 			var c = new Identifier(c);
 			if( classes == null )
