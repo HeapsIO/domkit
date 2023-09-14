@@ -62,10 +62,10 @@ enum abstract CssRelation(Int) {
 class CssClass {
 	public var parent : Null<CssClass>;
 	public var component : Null<Component<Dynamic,Dynamic>>;
-	public var className : Null<String>;
-	public var extraClasses : Null<Array<String>>;
+	public var id : Identifier;
+	public var className : Null<Identifier>;
+	public var extraClasses : Null<Array<Identifier>>;
 	public var pseudoClasses : PseudoClass = None;
-	public var id : Null<String>;
 	public var relation : CssRelation = None;
 	public function new() {
 	}
@@ -146,6 +146,7 @@ class CssParser {
 	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 
+	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
 	static var CURVES : Map<String,Curve> = [
 		"ease" => DEFAULT_CURVE,
@@ -354,7 +355,7 @@ class CssParser {
 			rules.push({ classes : classes, style : style.rules, transitions: style.transitions });
 			// removed unused components rules
 			for( c in classes.copy() )
-				if( c.className == "@" ) {
+				if( c.className == ERASED ) {
 					classes.remove(c);
 					if( classes.length == 0 )
 						rules.pop();
@@ -423,7 +424,7 @@ class CssParser {
 							warnedComponents.set(i, true);
 							warnings.push({ pmin : p, pmax : pos, msg : "Unknown component "+i });
 						}
-						c.className = "@"; // prevent it to be applied
+						c.className = ERASED; // prevent it to be applied
 					} else
 						c.component = comp;
 					def = true;
@@ -441,14 +442,14 @@ class CssParser {
 					switch( last ) {
 					case TDot:
 						if( c.className == null )
-							c.className = i;
+							c.className = new Identifier(i);
 						else {
 							if( c.extraClasses == null ) c.extraClasses = [];
-							c.extraClasses.push(i);
+							c.extraClasses.push(new Identifier(i));
 						}
 						def = true;
 					case TSharp:
-						c.id = i;
+						c.id = new Identifier(i);
 						def = true;
 					case TDblDot:
 						switch( i ) {

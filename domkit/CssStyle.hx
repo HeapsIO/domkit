@@ -178,7 +178,7 @@ class CssData {
 				var nids = 0, nothers = 0, nnodes = 0;
 				var c = cl;
 				while( c != null ) {
-					if( c.id != null ) nids++;
+					if( c.id.isDefined() ) nids++;
 					if( c.component != null ) {
 						nnodes += 32;
 						var k = c.component.parent;
@@ -609,7 +609,7 @@ class CssStyle {
 	}
 
 	public static function ruleMatch( c : CssParser.CssClass, e : Properties<Dynamic> ) {
-		if( c.id != null && c.id != e.id )
+		if( c.id.isDefined() && c.id != e.id )
 			return false;
 		if( c.pseudoClasses != None ) {
 			if( c.pseudoClasses.has(Hover) && !e.hover )

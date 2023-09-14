@@ -19,7 +19,7 @@ private class DirtyRef {
 
 class Properties<T:Model<T>> {
 
-	public var id(default,null) : String;
+	public var id(default,null) : Identifier;
 	public var obj(default,null) : Model<T>;
 	public var component(default,null) : Component<T,Dynamic>;
 	public var hover(default,set) : Bool = false;
@@ -29,7 +29,7 @@ class Properties<T:Model<T>> {
 	public var parent(get,never) : Properties<T>;
 	public var contentRoot(default,null) : Model<T>;
 
-	var classes : Array<String>;
+	var classes : Array<Identifier>;
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
 	var currentValues : Array<CssValue>; // only for inspector
@@ -54,14 +54,15 @@ class Properties<T:Model<T>> {
 		dirty.mark();
 	}
 
-	public function getClasses() : Iterable<String> {
-		return classes == null ? [] : classes;
+	static var EMPTY_CLASSES = [];
+	public function getClasses() : Iterable<Identifier> {
+		return classes == null ? EMPTY_CLASSES : classes;
 	}
 
 	public function hasClass( name : String ) {
 		if( classes == null )
 			return false;
-		return classes.indexOf(name) >= 0;
+		return classes.indexOf(new Identifier(name)) >= 0;
 	}
 
 	public function onParentChanged() {
@@ -85,6 +86,7 @@ class Properties<T:Model<T>> {
 	public function addClass( c : String ) {
 		if( classes == null )
 			classes = [];
+		var c = new Identifier(c);
 		if( classes.indexOf(c) < 0 ) {
 			classes.push(c);
 			needRefresh();
@@ -102,6 +104,7 @@ class Properties<T:Model<T>> {
 	public function removeClass( c : String ) {
 		if( classes == null )
 			return;
+		var c = new Identifier(c);
 		if( classes.remove(c) ) {
 			needRefresh();
 			if( classes.length == 0 ) classes = null;
@@ -110,6 +113,7 @@ class Properties<T:Model<T>> {
 
 	public function toggleClass( c : String, ?b : Bool ) {
 		if( b == null ) {
+			var c = new Identifier(c);
 			if( classes == null )
 				classes = [c];
 			else if( classes.remove(c) ) {
@@ -181,7 +185,7 @@ class Properties<T:Model<T>> {
 		for( c in cl ) {
 			var c = StringTools.trim(c);
 			if( c.length == 0 ) continue;
-			classes.push(c);
+			classes.push(new Identifier(c));
 		}
 		needRefresh();
 	}
@@ -191,10 +195,10 @@ class Properties<T:Model<T>> {
 	 */
 	public function setClassKind( kind : String, value : String ) {
 		kind += "-";
-		var full = kind + value;
+		var full = new Identifier(kind + value);
 		if( classes == null ) classes = [];
 		for( c in classes )
-			if( StringTools.startsWith(c,kind) ) {
+			if( StringTools.startsWith(c.toString(),kind) ) {
 				if( c == full ) return;
 				classes.remove(c);
 				break;
@@ -204,6 +208,7 @@ class Properties<T:Model<T>> {
 	}
 
 	public function setId( id : String ) {
+		var id = id == null ? null : new Identifier(id);
 		if( this.id == id ) return;
 		this.id = id;
 		updateComponentId(this);
@@ -226,8 +231,8 @@ class Properties<T:Model<T>> {
 			if( classes == null )
 				classes = [];
 			switch( value ) {
-			case VIdent(i): classes.push(i);
-			case VGroup(vl): for( v in vl ) switch( v ) { case VIdent(i): classes.push(i); default: return InvalidValue(); }
+			case VIdent(i): classes.push(new Identifier(i));
+			case VGroup(vl): for( v in vl ) switch( v ) { case VIdent(i): classes.push(new Identifier(i)); default: return InvalidValue(); }
 			default: return InvalidValue();
 			}
 			needRefresh();
