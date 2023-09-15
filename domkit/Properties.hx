@@ -185,13 +185,31 @@ class Properties<T:Model<T>> {
 
 	public function setClasses( cl : String ) {
 		var cl = cl.split(" ");
+		var prevClasses = classes;
 		classes = [];
 		for( c in cl ) {
 			var c = StringTools.trim(c);
 			if( c.length == 0 ) continue;
 			classes.push(new Identifier(c));
 		}
-		needRefresh();
+		if( classes.length == 0 )
+			classes = null;
+		if( !sameClasses(classes,prevClasses) )
+			needRefresh();
+	}
+
+	static inline function sameClasses( cl1 : Array<Identifier>, cl2 : Array<Identifier> ) {
+		if( (cl1 == null ? 0 : cl1.length) != (cl2 == null ? 0 : cl2.length) )
+			return false;
+		if( cl1 == null )
+			return true;
+		var ok = true;
+		for( i in 0...cl1.length )
+			if( cl1[i] != cl2[i] ) {
+				ok = false;
+				break;
+			}
+		return ok;
 	}
 
 	/**
