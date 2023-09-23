@@ -3,7 +3,7 @@ package domkit;
 abstract Identifier(Int) {
 	public function new(name:String) {
 		this = _CACHE.get(name);
-		if( this == 0 ) {
+		if( !isDefined() ) {
 			this = ++_UID;
 			_CACHE.set(name, this);
 			_RCACHE.push(name);
@@ -13,7 +13,7 @@ abstract Identifier(Int) {
 		return _RCACHE[this];
 	}
 	public inline function isDefined() {
-		return this != 0;
+		return this != #if static 0 #else null #end;
 	}
 	static var _UID = 0;
 	static var _CACHE = new Map();
