@@ -78,6 +78,45 @@ class Component<BaseT,T> {
 		return c;
 	}
 
+	public static macro function build( expr ) {
+		switch( expr.expr ) {
+		case EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }):
+
+			try {
+				var p = new MarkupParser();
+				var pinf = haxe.macro.Context.getPosInfos(expr.pos);
+				var root = p.parse(str,pinf.file,pinf.min).children[0];
+
+				var comp = switch( root.kind ) {
+				case Node(name): @:privateAccess Macros.loadComponent(name, pinf.min, pinf.min + name.length);
+				default: haxe.macro.Context.error("Should be a markup node", expr.pos);
+				}
+
+				var inf = { fields : [], declaredIds : new Map(), inits : [], hasContent : false };
+				var initExpr = @:privateAccess Macros.buildComponentsInit(root, inf, expr.pos, false);
+				switch( initExpr.expr ) {
+				case EBlock(el):
+					var t = comp.baseType;
+					el.unshift(macro var tmp = null);
+					el.push(macro (cast tmp.obj : $t));
+				default: throw "assert";
+				}
+				if( inf.inits.length > 0 ) {
+					inf.inits.push({ expr : initExpr.expr, pos : initExpr.pos });
+					initExpr.expr = EBlock(inf.inits);
+				}
+				return initExpr;
+
+			} catch( e : Error ) {
+				haxe.macro.Context.error(e.message, @:privateAccess Macros.makePos(expr.pos,e.pmin,e.pmax));
+			}
+
+		default:
+			haxe.macro.Context.error("Should be a markup expression", expr.pos);
+		}
+		return null;
+	}
+
 	@:persistent static var COMPONENTS = new Map<String,Component<Dynamic,Dynamic>>();
 
 }

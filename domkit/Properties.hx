@@ -327,7 +327,7 @@ class Properties<T:Model<T>> {
 
 	static function createNew<T:Model<T>>( comp : String, parent : Properties<T>, args : Array<Dynamic>, ?attributes : haxe.DynamicAccess<String> ) : Properties<T> {
 		var c = Component.get(comp);
-		var value : T = c.make(args, parent.contentRoot);
+		var value : T = c.make(args, parent == null ? null : parent.contentRoot);
 		var p : Properties<T> = cast value.dom;
 		if( p == null )
 			value.dom = cast (p = new Properties<T>(value, cast c));
