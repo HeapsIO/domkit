@@ -93,7 +93,7 @@ class Component<BaseT,T> {
 				}
 
 				var inf = { fields : [], declaredIds : new Map(), inits : [], hasContent : false };
-				var initExpr = @:privateAccess Macros.buildComponentsInit(root, inf, expr.pos, false);
+				var initExpr = @:privateAccess Macros.buildComponentsInit(root, inf, expr.pos, false, false);
 				switch( initExpr.expr ) {
 				case EBlock(el):
 					var t = comp.baseType;

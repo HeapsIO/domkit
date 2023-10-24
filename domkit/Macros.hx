@@ -156,7 +156,7 @@ class Macros {
 		return { expr : e.expr, pos : pos };
 	}
 
-	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false ) : Expr {
+	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false, useThis = true) : Expr {
 		switch (m.kind) {
 		case Node(name):
 			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
@@ -327,7 +327,12 @@ class Macros {
 								}
 						default:
 						}
-						exprs.push(macro this.$field.push(cast tmp.obj));
+						if (useThis) {
+							exprs.push(macro this.$field.push(cast tmp.obj));
+						} else {
+							exprs.push(macro $i{field}.push(cast tmp.obj));
+						}
+
 						if( !data.declaredIds.exists(field) ) {
 							data.declaredIds.set(field, true);
 							data.fields.push({
@@ -336,23 +341,35 @@ class Macros {
 								pos : makePos(pos, a.pmin, a.pmax),
 								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), null),
 							});
-							data.inits.push(macro this.$field = []);
+							if (useThis) {
+								data.inits.push(macro this.$field = []);
+							} else {
+								data.inits.push(macro $i{field} = []);
+							}
 						}
 					} else {
-						exprs.push(macro this.$field = cast tmp.obj);
+						if (useThis) {
+							exprs.push(macro this.$field = cast tmp.obj);
+						} else {
+							exprs.push(macro $i{field} = cast tmp.obj);
+						}
 						data.fields.push({
 							name : field,
 							access : [access],
 							pos : makePos(pos, a.pmin, a.pmax),
 							kind : FVar(ct),
 						});
-						data.inits.push(macro this.$field = null);
+						if (useThis) {
+							data.inits.push(macro this.$field = null);
+						} else {
+							data.inits.push(macro $i{field} = null);
+						}
 					}
 				}
 			for( e in aexprs )
 				exprs.push(e);
 			for( c in m.children ) {
-				var e = buildComponentsInit(c, data, pos);
+				var e = buildComponentsInit(c, data, pos, false, useThis);
 				if( e != null ) exprs.push(e);
 			}
 			if( isRoot && data.hasContent ) {
@@ -385,7 +402,7 @@ class Macros {
 				expr = "{"+expr+"}";
 			}
 			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin + offset, m.pmax));
-			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos));
+			replaceLoop(expr, function(m) return buildComponentsInit(m, data, pos, false, useThis));
 			remapBuild(expr);
 			return expr;
 		case For(expr):
@@ -395,7 +412,7 @@ class Macros {
 			case EParenthesis(e): e;
 			default: expr;
 			}
-			var exprs = [for( c in m.children ) buildComponentsInit(c, data, pos)];
+			var exprs = [for( c in m.children ) buildComponentsInit(c, data, pos, false, useThis)];
 			return macro for( $expr ) $a{exprs};
 		case Macro(id):
 			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
@@ -404,7 +421,7 @@ class Macros {
 			}];
 			var m = processMacro(id, args, makePos(pos, m.pmin, m.pmax));
 			if( m == null ) error("Unsupported custom text", m.pmin, m.pmax);
-			return buildComponentsInit(m, data, pos);
+			return buildComponentsInit(m, data, pos, false, useThis);
 		}
 	}
 
