@@ -10,6 +10,7 @@ typedef ComponentData = {
 	var fields : Array<haxe.macro.Expr.Field>;
 	var inits : Array<Expr>;
 	var hasContent : Bool;
+	var useThis : Bool;
 }
 
 #end
@@ -156,7 +157,7 @@ class Macros {
 		return { expr : e.expr, pos : pos };
 	}
 
-	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false ) : Expr {
+	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false) : Expr {
 		switch (m.kind) {
 		case Node(name):
 			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
@@ -327,7 +328,12 @@ class Macros {
 								}
 						default:
 						}
-						exprs.push(macro this.$field.push(cast tmp.obj));
+						if (data.useThis) {
+							exprs.push(macro this.$field.push(cast tmp.obj));
+						} else {
+							exprs.push(macro $i{field}.push(cast tmp.obj));
+						}
+
 						if( !data.declaredIds.exists(field) ) {
 							data.declaredIds.set(field, true);
 							data.fields.push({
@@ -336,17 +342,29 @@ class Macros {
 								pos : makePos(pos, a.pmin, a.pmax),
 								kind : FVar(TPath({ pack : [], name : "Array", params : [TPType(ct)] }), null),
 							});
-							data.inits.push(macro this.$field = []);
+							if (data.useThis) {
+								data.inits.push(macro this.$field = []);
+							} else {
+								data.inits.push(macro $i{field} = []);
+							}
 						}
 					} else {
-						exprs.push(macro this.$field = cast tmp.obj);
+						if (data.useThis) {
+							exprs.push(macro this.$field = cast tmp.obj);
+						} else {
+							exprs.push(macro $i{field} = cast tmp.obj);
+						}
 						data.fields.push({
 							name : field,
 							access : [access],
 							pos : makePos(pos, a.pmin, a.pmax),
 							kind : FVar(ct),
 						});
-						data.inits.push(macro this.$field = null);
+						if (data.useThis) {
+							data.inits.push(macro this.$field = null);
+						} else {
+							data.inits.push(macro $i{field} = null);
+						}
 					}
 				}
 			for( e in aexprs )
@@ -449,7 +467,7 @@ class Macros {
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false }, pos, true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, pos, true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
