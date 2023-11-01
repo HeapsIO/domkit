@@ -193,10 +193,11 @@ class Macros {
 			}
 
 			var access = APrivate;
+			var toRem = null;
 			for( a in m.attributes ) {
 				switch( a.name ) {
 				case "public" if( a.value.match(RawValue("true")) ):
-					m.attributes.remove(a);
+					toRem = a;
 					access = APublic;
 				case "id" if( a.value.match(RawValue("true")) ):
 					var name = null;
@@ -212,6 +213,8 @@ class Macros {
 				default:
 				}
 			}
+			if( toRem != null )
+				m.attributes.remove(toRem);
 
 			var avalues = [];
 			var aexprs = [];
