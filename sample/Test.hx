@@ -1,4 +1,3 @@
-import domkit.Builder;
 
 class Obj extends Components.MydivComponent {
 
