@@ -78,7 +78,7 @@ class Component<BaseT,T> {
 		return c;
 	}
 
-	public static macro function build( expr ) {
+	public static macro function build( expr, ?parent ) {
 		switch( expr.expr ) {
 		case EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }):
 
@@ -97,7 +97,7 @@ class Component<BaseT,T> {
 				switch( initExpr.expr ) {
 				case EBlock(el):
 					var t = comp.baseType;
-					el.unshift(macro var tmp = null);
+					el.unshift(parent == null ? macro var tmp = null : macro var tmp = $parent.dom);
 					el.push(macro (cast tmp.obj : $t));
 				default: throw "assert";
 				}
