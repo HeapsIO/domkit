@@ -97,7 +97,7 @@ class Component<BaseT,T> {
 				switch( initExpr.expr ) {
 				case EBlock(el):
 					var t = comp.baseType;
-					el.unshift(parent == null ? macro var tmp = null : macro var tmp = $parent.dom);
+					el.unshift(parent == null || parent.expr.match(EConst(CIdent("null"))) ? macro var tmp = null : macro var tmp = $parent.dom);
 					el.push(macro (cast tmp.obj : $t));
 				default: throw "assert";
 				}
