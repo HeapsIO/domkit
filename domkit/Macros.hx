@@ -267,9 +267,9 @@ class Macros {
 						mc = cast(mc.parent, MetaComponent);
 					}
 					if( eset == null ) {
-						if( p.name == "class" ) {
-							aexprs.push(macro tmp.setClasses($e));
-						} else
+						if( p.name == "class" )
+							aexprs.push(macro @:pos(e.pos) tmp.setClasses($e));
+						else
 							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
 					} else {
 						var exprs = [];

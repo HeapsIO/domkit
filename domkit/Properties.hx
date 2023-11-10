@@ -183,8 +183,17 @@ class Properties<T:Model<T>> {
 		}
 	}
 
-	public function setClasses( cl : String ) {
-		var cl = cl.split(" ");
+	public function setClasses( ?classStr : String, ?classObj : Dynamic<Bool> ) {
+		var cl;
+		if( classStr != null )
+			cl = classStr.split(" ");
+		else if( classObj != null ) {
+			cl = [];
+			for( f in Reflect.fields(classObj) )
+				if( Reflect.field(classObj,f) )
+					cl.push(f.split("_").join("-"));
+		} else
+			cl = [];
 		var prevClasses = classes;
 		classes = [];
 		for( c in cl ) {
