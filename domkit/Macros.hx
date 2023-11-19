@@ -417,7 +417,7 @@ class Macros {
 			default: expr;
 			}
 			var exprs = [for( c in m.children ) buildComponentsInit(c, data, pos)];
-			return macro for( $expr ) $a{exprs};
+			return macro for( $expr ) $b{exprs};
 		case Macro(id):
 			var args = m.arguments == null ? null : [for( a in m.arguments ) switch( a.value ) {
 				case RawValue(v): { expr : EConst(CString(v)), pos : makePos(pos, a.pmin, a.pmax) };
