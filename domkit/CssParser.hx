@@ -25,6 +25,7 @@ enum Token {
 	TBkClose;
 	TSuperior;
 	TAnd;
+	TAt;
 }
 
 enum abstract PseudoClass(Int) {
@@ -185,7 +186,9 @@ class CssParser {
 	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 	public var allowSubRules = true;
+	public var allowVariablesDecl = true;
 	public var expandSubRules = true;
+	public var variables : Map<String, CssValue> = [];
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -224,7 +227,7 @@ class CssParser {
 			case TComma: ",";
 			case TEof: "EOF";
 			case TPercent: "%";
-			case TSemicolon: ",";
+			case TSemicolon: ";";
 			case TBrOpen: "{";
 			case TBrClose: "}";
 			case TDot: ".";
@@ -235,6 +238,7 @@ class CssParser {
 			case TBkClose: "]";
 			case TSuperior: ">";
 			case TAnd: "&";
+			case TAt: "@";
 		};
 	}
 
@@ -414,6 +418,14 @@ class CssParser {
 		while( true ) {
 			if( isToken(TEof) )
 				break;
+			if( allowVariablesDecl && isToken(TAt) ) {
+				var name = readIdent();
+				expect(TDblDot);
+				var value = readValue();
+				expect(TSemicolon);
+				variables.set(name, value);
+				continue;
+			}
 			for( e in parseSheetElements(false) )
 				rules.push(e);
 		}
@@ -622,6 +634,12 @@ class CssParser {
 			readValueUnit(f, null);
 		case TSlash:
 			VSlash;
+		case TAt:
+			var name = readIdent();
+			var value = variables.get(name);
+			if( value == null )
+				error("Unkown variable @"+name);
+			value;
 		default:
 			if( !opt ) unexpected(t);
 			push(t);
@@ -862,6 +880,7 @@ class CssParser {
 			case "]".code: return TBkClose;
 			case ">".code: return TSuperior;
 			case "&".code: return TAnd;
+			case "@".code: return TAt;
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {
