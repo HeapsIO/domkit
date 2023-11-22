@@ -24,6 +24,7 @@ enum Token {
 	TBkOpen;
 	TBkClose;
 	TSuperior;
+	TAnd;
 }
 
 enum abstract PseudoClass(Int) {
@@ -57,6 +58,7 @@ enum abstract PseudoClass(Int) {
 enum abstract CssRelation(Int) {
 	var None = 0;
 	var ImmediateChildren = 1;
+	var SubRule = 2;
 }
 
 class CssClass {
@@ -69,6 +71,40 @@ class CssClass {
 	public var relation : CssRelation = None;
 	public function new() {
 	}
+	public function withParent(cl:CssClass) {
+		var c = new CssClass();
+		if( relation == SubRule ) {
+			if( parent != null ) throw "assert";
+			c.parent = cl.parent;
+			c.component = component ?? cl.component;
+			c.id = id ?? cl.id;
+			c.className = className ?? cl.className;
+			if( className != null && cl.className != null ) {
+				c.extraClasses = [cl.className];
+				if( extraClasses != null ) {
+					for( cl in extraClasses )
+						c.extraClasses.push(cl);
+				}
+				if( cl.extraClasses != null ) {
+					for( cl in cl.extraClasses )
+						c.extraClasses.push(cl);
+				}
+			} else {
+				c.extraClasses = cl.extraClasses;
+			}
+			c.pseudoClasses = pseudoClasses | cl.pseudoClasses;
+			c.relation = cl.relation;
+		} else {
+			c.parent = parent == null ? cl : parent.withParent(cl);
+			c.component = component;
+			c.id = id;
+			c.className = className;
+			c.extraClasses = extraClasses;
+			c.pseudoClasses = pseudoClasses;
+			c.relation = relation;
+		}
+		return c;
+	}
 }
 
 typedef Transition = {
@@ -77,11 +113,14 @@ typedef Transition = {
 	var curve : Curve;
 }
 
-typedef CssSheet = Array<{
+typedef CssSheet = Array<CssSheetElement>;
+
+typedef CssSheetElement = {
 	var classes : Array<CssClass>;
 	var style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int }>;
 	var ?transitions : Array<Transition>;
- }>;
+	var ?subRules : CssSheet;
+ }
 
 
 class Curve {
@@ -145,6 +184,8 @@ class CssParser {
 	var tokens : Array<Token>;
 	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
+	public var allowSubRules = true;
+	public var expandSubRules = true;
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -193,6 +234,7 @@ class CssParser {
 			case TBkOpen: "[";
 			case TBkClose: "]";
 			case TSuperior: ">";
+			case TAnd: "&";
 		};
 	}
 
@@ -217,7 +259,7 @@ class CssParser {
 		pos = 0;
 		tokens = [];
 		warnings = [];
-		return parseStyle(TEof);
+		return parseStyle(null, TEof);
 	}
 
 	public function parseValue( valueStr : String ) {
@@ -307,14 +349,37 @@ class CssParser {
 		return { p : p, time : time, curve : curve };
 	}
 
-	function parseStyle( eof ) {
-		var rules = [], trans = null;
+	function parseStyle( classes, eof ) : CssSheetElement {
+		var rules = [], trans = null, subRules = null;
 		while( true ) {
 			if( isToken(eof) )
 				break;
-			var name = readIdent();
+			var tk = readToken();
+			var name = switch( tk ) {
+			case TIdent(n): n;
+			case TAnd, TSuperior, TSharp, TDot, TDblDot if( allowSubRules ):
+				push(tk);
+				if( subRules == null ) subRules = [];
+				for( e in parseSheetElements(true) )
+					subRules.push(e);
+				continue;
+			default:
+				unexpected(tk);
+			}
 			var start = tokenStart;
-			expect(TDblDot);
+			switch( readToken() ) {
+			case TDblDot:
+			case tk if( allowSubRules ):
+				push(tk);
+				push(TIdent(name));
+				if( subRules == null ) subRules = [];
+				for( e in parseSheetElements(true) )
+					subRules.push(e);
+				continue;
+			case tk:
+				push(tk);
+				expect(TDblDot);
+			}
 			var value = readValue();
 			var p = Property.get(name, false);
 			if( p == null ) {
@@ -336,7 +401,7 @@ class CssParser {
 				break;
 			expect(TSemicolon);
 		}
-		return { rules : rules, transitions : trans };
+		return { classes : classes, style : rules, transitions : trans, subRules : subRules };
 	}
 
 	public function parseSheet( css : String ) : CssSheet {
@@ -349,38 +414,58 @@ class CssParser {
 		while( true ) {
 			if( isToken(TEof) )
 				break;
-			var classes = readClasses();
-			expect(TBrOpen);
-			var style = parseStyle(TBrClose);
-			rules.push({ classes : classes, style : style.rules, transitions: style.transitions });
-			// removed unused components rules
-			for( c in classes.copy() )
-				if( c.className == ERASED ) {
-					classes.remove(c);
-					if( classes.length == 0 )
-						rules.pop();
-				}
+			for( e in parseSheetElements(false) )
+				rules.push(e);
 		}
 		return rules;
 	}
 
-	public function parseClasses( css : String ) {
+	function parseSheetElements(hasParent) : Array<CssSheetElement> {
+		var classes = readClasses(hasParent);
+		expect(TBrOpen);
+		var elt = parseStyle(classes, TBrClose);
+		// removed unused components rules
+		for( c in classes.copy() )
+			if( c.className == ERASED ) {
+				classes.remove(c);
+				if( classes.length == 0 )
+					return [];
+			}
+		if( expandSubRules && elt.subRules != null ) {
+			var out = [];
+			var subs = elt.subRules;
+			if( elt.style.length > 0 || elt.transitions != null ) {
+				elt.subRules = null;
+				out.push(elt);
+			}
+			for( s in subs ) {
+				for( pcl in elt.classes ) {
+					var cl = [for( c in s.classes ) c.withParent(pcl)];
+					out.push({ classes : cl, style : s.style, transitions : s.transitions, subRules : null });
+				}
+			}
+			return out;
+		}
+		return [elt];
+	}
+
+	public function parseClasses( css : String, ?hasParent ) {
 		this.css = css;
 		pos = 0;
 		tokens = [];
-		var c = readClasses();
+		var c = readClasses(hasParent);
 		expect(TEof);
 		return c;
 	}
 
 	// ----------------- class parser ---------------------------
 
-	function readClasses() {
+	function readClasses(hasParent) {
 		var classes = [];
 		while( true ) {
 			spacesTokens = true;
 			isToken(TSpaces); // skip
-			var c = readClass(null);
+			var c = readClass(null, hasParent);
 			spacesTokens = false;
 			if( c == null ) break;
 			classes.push(c);
@@ -392,14 +477,27 @@ class CssParser {
 		return classes;
 	}
 
-	function readClass( parent ) : CssClass {
+	function readClass( parent, allowSubRule ) : CssClass {
 		var c = new CssClass();
 		c.parent = parent;
 		var def = false;
 		var last = null;
+		var first = true;
 		while( true ) {
 			var p = pos;
 			var t = readToken();
+			if( allowSubRule && first ) {
+				first = false;
+				switch( t ) {
+				case TAnd:
+					c.relation = SubRule;
+					t = readToken();
+				case TSuperior:
+					c.relation = ImmediateChildren;
+					t = readToken();
+				default:
+				}
+			}
 			if( last == null )
 				switch( t ) {
 				case TStar: def = true;
@@ -407,7 +505,7 @@ class CssParser {
 				case TSuperior:
 					if( def ) {
 						push(t);
-						return readClass(c);
+						return readClass(c, false);
 					}
 					if( c.relation != None ) unexpected(t);
 					c.relation = ImmediateChildren;
@@ -429,7 +527,7 @@ class CssParser {
 						c.component = comp;
 					def = true;
 				case TSpaces:
-					return def ? readClass(c) : null;
+					return def ? readClass(c, false) : null;
 				case TBrOpen, TComma, TEof:
 					push(t);
 					break;
@@ -763,6 +861,7 @@ class CssParser {
 			case "[".code: return TBkOpen;
 			case "]".code: return TBkClose;
 			case ">".code: return TSuperior;
+			case "&".code: return TAnd;
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {

@@ -674,6 +674,8 @@ class CssStyle {
 					return false;
 			case ImmediateChildren:
 				return p != null && ruleMatch(c.parent, p);
+			case SubRule:
+				throw "assert";
 			}
 		}
 		return true;
