@@ -187,8 +187,11 @@ class CssParser {
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 	public var allowSubRules = true;
 	public var allowVariablesDecl = true;
+	public var allowFunctionsDecl = true;
 	public var expandSubRules = true;
+	public var allowSingleLineComment = true;
 	public var variables : Map<String, CssValue> = [];
+	public var functions : Map<String, CssSheetElement> = [];
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -434,6 +437,13 @@ class CssParser {
 
 	function parseSheetElements(hasParent) : Array<CssSheetElement> {
 		var classes = readClasses(hasParent);
+		if( allowFunctionsDecl && classes.length == 1 && classes[0].className != null && isToken(TPOpen) ) {
+			expect(TPClose);
+			expect(TBrOpen);
+			var rules = parseStyle([null], TBrClose);
+			functions.set(classes[0].className.toString(), rules);
+			return [];
+		}
 		expect(TBrOpen);
 		var elt = parseStyle(classes, TBrClose);
 		// removed unused components rules
@@ -489,7 +499,7 @@ class CssParser {
 		return classes;
 	}
 
-	function readClass( parent, allowSubRule ) : CssClass {
+	function readClass( parent, hasParent ) : CssClass {
 		var c = new CssClass();
 		c.parent = parent;
 		var def = false;
@@ -498,7 +508,7 @@ class CssParser {
 		while( true ) {
 			var p = pos;
 			var t = readToken();
-			if( allowSubRule && first ) {
+			if( hasParent && first ) {
 				first = false;
 				switch( t ) {
 				case TAnd:
@@ -541,6 +551,9 @@ class CssParser {
 				case TSpaces:
 					return def ? readClass(c, false) : null;
 				case TBrOpen, TComma, TEof:
+					push(t);
+					break;
+				case TPOpen if( allowFunctionsDecl && !hasParent ):
 					push(t);
 					break;
 				default:
@@ -884,6 +897,15 @@ class CssParser {
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {
+					if( c == "/".code && allowSingleLineComment ) {
+						while( true ) {
+							c = next();
+							if( StringTools.isEof(c) || c == '\n'.code )
+								break;
+						}
+						pos--;
+						return readToken();
+					}
 					pos--;
 					return TSlash;
 				}
