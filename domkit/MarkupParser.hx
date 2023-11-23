@@ -161,6 +161,7 @@ class MarkupParser {
 			}
 		}
 		var r_prefix = ~/^([a-z]+)/;
+		var r_string = ~/^['"]([^'"]*)['"]$/;
 		function emitCode() {
 			var fullText = buf.toString();
 			var text = StringTools.trim(fullText);
@@ -211,9 +212,7 @@ class MarkupParser {
 				return;
 			}
 			start += base.indexOf(arg);
-			if( arg.charCodeAt(0) == "'".code || arg.charCodeAt(0) == '"'.code ) {
-				if( arg.charCodeAt(arg.length-1) != arg.charCodeAt(0) )
-					error("Unclosed string", start, start + arg.length);
+			if( r_string.match(arg) ) {
 				obj.arguments.push({ value : RawValue(arg.substr(1,arg.length - 2)), pmin : filePos + start + 1, pmax : filePos + start + arg.length - 1 });
 			} else {
 				obj.arguments.push({ value : Code(parseCode(arg,start)), pmin : filePos + start, pmax : filePos + start + arg.length });
