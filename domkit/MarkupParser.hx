@@ -587,9 +587,9 @@ class MarkupParser {
 						if( parent == null )
 							ok = false;
 						else switch( parent.kind ) {
-						case Node(name) if( v == name ): // ok
+						case Node(name) if( v == name.split(":")[0] ): // ok
 						case Node(name):
-							error("Unclosed node <" + name + ">", parent.pmin - filePos, parent.pmax - filePos);
+							error("Unclosed node <" + name.split(":")[0] + ">", parent.pmin - filePos, parent.pmax - filePos);
 						default:
 							ok = false;
 						}
