@@ -499,6 +499,14 @@ class CssParser {
 		return classes;
 	}
 
+	function resolveComponent( i : String, p : Int ) {
+		#if macro
+		return @:privateAccess Macros.loadComponent(i,p,this.pos);
+		#else
+		return Component.get(i,true);
+		#end
+	}
+
 	function readClass( parent, hasParent ) : CssClass {
 		var c = new CssClass();
 		c.parent = parent;
@@ -534,11 +542,7 @@ class CssParser {
 					t = readToken();
 					if( t != TSpaces ) push(t);
 				case TIdent(i):
-					#if macro
-					var comp = @:privateAccess Macros.loadComponent(i,p,this.pos);
-					#else
-					var comp = Component.get(i,true);
-					#end
+					var comp = resolveComponent(i, p);
 					if( comp == null ) {
 						if( !warnedComponents.exists(i) ) {
 							warnedComponents.set(i, true);
