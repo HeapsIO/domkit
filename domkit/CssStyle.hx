@@ -641,7 +641,7 @@ class CssStyle {
 			if( e.classes == null )
 				return false;
 			var found = false;
-			var cl : Int = cl.className;
+			var cl : domkit.Identifier = c.className;
 			for( cc in e.classes )
 				if( cc == cl ) {
 					found = true;
