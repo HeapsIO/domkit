@@ -641,8 +641,9 @@ class CssStyle {
 			if( e.classes == null )
 				return false;
 			var found = false;
+			var cl : Int = cl.className;
 			for( cc in e.classes )
-				if( cc == c.className ) {
+				if( cc == cl ) {
 					found = true;
 					break;
 				}
