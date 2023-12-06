@@ -114,7 +114,17 @@ class MarkupParser {
 
 	function parseCode( v : String, start : Int ) {
 		#if macro
-		var e = try haxe.macro.Context.parseInlineString(v,haxe.macro.Context.makePosition({ min : filePos + start, max : filePos + start + v.length, file : fileName })) catch( e : Dynamic ) error(""+e, start, start + v.length);
+		var e = try {
+			var pos = haxe.macro.Context.makePosition({ min : filePos + start, max : filePos + start + v.length, file : fileName });
+			haxe.macro.Context.parseInlineString(v,pos);
+		} catch( e : Dynamic ) {
+			// fallback for attr={x:v,y:v}
+			try {
+				var pos = haxe.macro.Context.makePosition({ min : filePos + start - 1, max : filePos + start + v.length + 1, file : fileName });
+				haxe.macro.Context.parseInlineString("{"+v+"}",pos);
+			} catch( _ : Dynamic )
+				error("" + e, start, start + v.length);
+		}
 		switch( e.expr ) {
 		case EConst(CIdent(i)) if( i.length != v.length ):
 			// fallback for https://github.com/HaxeFoundation/haxe/issues/11368
