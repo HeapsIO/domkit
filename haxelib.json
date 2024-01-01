@@ -3,7 +3,7 @@
 	"url" : "https://github.com/ncannasse/domkit",
 	"license" : "MIT",
     "description" : "CSS Components UI framework",
-    "version" : "0.2.0",
+    "version" : "0.3.0",
 	"releasenote" : "",
 	"contributors" : ["ncannasse"],
 	"dependencies" : {}
