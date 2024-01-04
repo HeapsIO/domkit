@@ -6,6 +6,14 @@ class InitComponents {
 		domkit.Macros.registerComponentsPath("Components.$Component");
 		domkit.Macros.registerComponentsPath("$Component");
 		domkit.Macros.processMacro = processMacro;
+		#if (haxe_ver >= 5)
+		haxe.macro.Context.onAfterInitMacros(checkCSS);
+		#else
+		checkCSS();
+		#end
+	}
+
+	static function checkCSS() {
 		domkit.Macros.checkCSS("test.css");
 	}
 
