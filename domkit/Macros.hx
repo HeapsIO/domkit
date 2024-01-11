@@ -621,13 +621,14 @@ class Macros {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
 				if( componentsType == null ) componentsType = m.baseType;
-				if (!COMPONENTS.exists(m.name) || !m.isRuntimeComponentAlive())
+				if (!COMPONENTS.exists(m.name) || !m.isRuntimeComponentAlive()) {
 					Context.defineType(m.buildRuntimeComponent(componentsType,fields));
+					COMPONENTS.set(m.name, m);
+				}
 				var t = m.getRuntimeComponentType();
 				fields.push((macro class {
 					static var ref : $t = null;
 				}).fields[0]);
-				COMPONENTS.set(m.name, m);
 				foundComp = m.name;
 			} catch( e : MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
