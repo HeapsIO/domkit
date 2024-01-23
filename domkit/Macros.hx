@@ -313,6 +313,7 @@ class Macros {
 				exprs.push(macro __contentRoot = tmp);
 				data.hasContent = true;
 			}
+			var topLevelCount = exprs.length;
 			for( a in m.attributes.copy() )
 				if( a.name == "id" ) {
 					var field = switch( a.value ) {
@@ -385,6 +386,12 @@ class Macros {
 			var ethis = isRoot ? macro this : macro (cast tmp.obj : $ct);
 			for( e in exprs )
 				replaceThis(e, ethis);
+
+			if( isRoot ) {
+				var build = exprs.slice(topLevelCount);
+				exprs = exprs.slice(0, topLevelCount);
+				exprs.push(macro if( tmp != null && @:privateAccess tmp.component.createHook != null ) @:privateAccess tmp.component.createHook(this) else $b{build});
+			}
 
 			if( m.condition != null ) {
 				remapBuild(m.condition.cond);

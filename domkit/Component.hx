@@ -39,8 +39,10 @@ class Component<BaseT,T> {
 	public var name : String;
 	public var make : Array<Dynamic> -> BaseT -> T;
 	public var parent : Component<BaseT,Dynamic>;
-	public var argsNames : Array<String>;
 	var propsHandler : Array<PropertyHandler<T,Dynamic>>;
+	// for domkit editor
+	var argsNames : Array<String>;
+	var createHook : BaseT -> Void;
 
 	public function new(name, make, parent) {
 		this.name = name;
