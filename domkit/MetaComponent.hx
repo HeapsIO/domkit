@@ -437,6 +437,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			setExprs.set(p.name, set);
 			handlers.push(expr);
 		}
+		if( cargs != null )
+			handlers.push(macro this.argsNames = $v{[for( i in 0...cargs.length-1 ) cargs[i].name]});
 
 		var parserClass = switch( parserType ) {
 		case TPath(t): t;
