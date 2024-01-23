@@ -655,7 +655,7 @@ class CssParser {
 			var name = readIdent();
 			var value = variables.get(name);
 			if( value == null )
-				error("Unkown variable @"+name);
+				error("Unknown variable @"+name);
 			value;
 		default:
 			if( !opt ) unexpected(t);

@@ -488,7 +488,7 @@ class MarkupParser {
 						if( parentCount == 0 ) {
 							var code = str.substr(start + 2, p - start - 1);
 							if( obj.condition != null ) error("Duplicate condition", start);
-							obj.condition = { cond : parseCode(code, start+2), pmin : start + filePos, pmax : p + filePos + 1 };
+							obj.condition = { cond : parseCode(code, start+2), pmin : start + filePos + 2, pmax : p + filePos + 1 };
 							state = BODY;
 						}
 					default:
@@ -597,8 +597,8 @@ class MarkupParser {
 						if( parent == null )
 							ok = false;
 						else switch( parent.kind ) {
-						case Node(name) if( v == name.split(":")[0] ): // ok
-						case Node(name):
+						case Node(name) if( name != null && v == name.split(":")[0] ): // ok
+						case Node(name) if( name != null ):
 							error("Unclosed node <" + name.split(":")[0] + ">", parent.pmin - filePos, parent.pmax - filePos);
 						default:
 							ok = false;
