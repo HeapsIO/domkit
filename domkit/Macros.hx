@@ -23,7 +23,6 @@ class Macros {
 	@:persistent static var componentsType : ComplexType;
 	@:persistent static var preload : Array<String> = [];
 	@:persistent public static var defaultParserPath : String = null;
-	static var RESOLVED_COMPONENTS = new Map();
 
 	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
 		return null;
@@ -67,20 +66,21 @@ class Macros {
 	}
 
 	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
-		var c = RESOLVED_COMPONENTS.get(name);
+		var c = COMPONENTS.get(name);
 		if( c != null ) {
-			if( c.path != null ) Context.getType(c.path);
-			return c.c;
+			// Make sure the built component is still available
+			if (c.isRuntimeComponentAlive()) return c;
+			// ... or forget about it
+			else COMPONENTS.remove(name);
 		}
+
 		var lastError = null;
 		var uname = MetaComponent.componentNameToClass(name);
 		for( p in componentsSearchPath ) {
 			var path = p.split("$").join(uname);
 			var t = try Context.getType(path) catch( e : Dynamic ) continue;
 			switch( t.follow() ) {
-			case TInst(c,_):
-				if( p == "$" ) path = c.toString(); // if we found with unqualified name, requalify
-				c.get(); // force build
+			case TInst(c,_): c.get(); // force build
 			default:
 			}
 			var c = COMPONENTS.get(name);
@@ -88,7 +88,6 @@ class Macros {
 				lastError = t;
 				continue;
 			}
-			RESOLVED_COMPONENTS.set(name, { c : c, path : path });
 			return c;
 		}
 		if( lastError != null )
@@ -629,14 +628,15 @@ class Macros {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
 				if( componentsType == null ) componentsType = m.baseType;
-				Context.defineType(m.buildRuntimeComponent(componentsType,fields));
+				if (!COMPONENTS.exists(m.name) || !m.isRuntimeComponentAlive()) {
+					Context.defineType(m.buildRuntimeComponent(componentsType,fields));
+					COMPONENTS.set(m.name, m);
+				}
 				var t = m.getRuntimeComponentType();
 				fields.push((macro class {
 					static var ref : $t = null;
 				}).fields[0]);
-				COMPONENTS.set(m.name, m);
 				foundComp = m.name;
-				RESOLVED_COMPONENTS.set(m.name,{ path : null, c : m }); // allow self resolution in document build
 			} catch( e : MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
 			}
@@ -653,8 +653,6 @@ class Macros {
 		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
 			buildDocument(cl, '<$foundComp></$foundComp>', cl.pos, fields, foundComp);
 		}
-		if( foundComp != null )
-			RESOLVED_COMPONENTS.remove(foundComp);
 		return fields;
 	}
 

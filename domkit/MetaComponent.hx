@@ -471,5 +471,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return macro : domkit.$name;
 	}
 
+	public function isRuntimeComponentAlive() {
+		var ct = getRuntimeComponentType();
+		var pos = haxe.macro.Context.currentPos();
+		return try haxe.macro.Context.resolveType(ct, pos) != null catch(_) false;
+	}
+
 	#end
 }
