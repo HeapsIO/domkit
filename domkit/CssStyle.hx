@@ -5,6 +5,7 @@ class RuleStyle {
 	public var value : CssValue;
 	public var lastHandler : Component.PropertyHandler<Dynamic,Dynamic>;
 	public var lastValue : Dynamic;
+	public var next : RuleStyle;
 	public function new(p,value) {
 		this.p = p;
 		this.value = value;
@@ -29,7 +30,6 @@ class Rule {
 	public var cl : CssParser.CssClass;
 	public var style : Array<RuleStyle>;
 	public var transitions : Array<RuleTransition>;
-	public var next : Rule;
 	public function new() {
 	}
 }
@@ -417,12 +417,15 @@ class CssStyle {
 
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
-				var match = false;
-				for( p in r.style )
+				var i = r.style.length - 1;
+				while( i >= 0 ) {
+					var p = r.style[i--];
 					if( p.p.tag != tag ) {
 						p.p.tag = tag;
-						match = true;
+						p.next = head;
+						head = p;
 					}
+				}
 				if( r.transitions != null ) {
 					for( t in r.transitions ) {
 						if( t.p.transTag != tag ) {
@@ -431,10 +434,6 @@ class CssStyle {
 							transHead = t;
 						}
 					}
-				}
-				if( match ) {
-					r.next = head;
-					head = r;
 				}
 			}
 
@@ -474,9 +473,8 @@ class CssStyle {
 				}
 			}
 			// apply new properties
-			var r = head;
-			while( r != null ) {
-				for( p in r.style ) {
+			var p = head;
+			while( p != null ) {
 					var pr = p.p;
 					var h = e.component.getHandler(pr);
 					if( h == null ) {
@@ -523,10 +521,9 @@ class CssStyle {
 							e.currentValues[e.currentSet.indexOf(pr)] = p.value;
 						}
 					}
-				}
-				var n = r.next;
-				r.next = null;
-				r = n;
+				var n = p.next;
+				p.next = null;
+				p = n;
 			}
 
 			// cancel transitions that are no longer valid
