@@ -475,55 +475,57 @@ class CssStyle {
 			// apply new properties
 			var p = head;
 			while( p != null ) {
-					var pr = p.p;
-					var h = e.component.getHandler(pr);
-					if( h == null ) {
-						onInvalidProperty(e, p, "Unsupported property");
+				var pr = p.p;
+				var h = e.component.getHandler(pr);
+				var next = p.next;
+				p.next = null;
+				if( h == null ) {
+					onInvalidProperty(e, p, "Unsupported property");
+					p = next;
+					continue;
+				}
+
+				if( p.lastHandler != h ) {
+					try {
+						var value = h.parser(p.value);
+						p.lastHandler = h;
+						p.lastValue = value;
+					} catch( err : Property.InvalidProperty ) {
+						// invalid property
+						onInvalidProperty(e, p, err.message);
+						p = next;
 						continue;
 					}
+				}
 
-					if( p.lastHandler != h ) {
-						try {
-							var value = h.parser(p.value);
-							p.lastHandler = h;
-							p.lastValue = value;
-						} catch( err : Property.InvalidProperty ) {
-							// invalid property
-							onInvalidProperty(e, p, err.message);
-							continue;
-						}
+				if( (pr.transTag == tag || pr.transTag == ntag) && !firstInit ) {
+					pr.transTag = ntag;
+					addTransition(pr, h, p.lastValue);
+				} else {
+					h.apply(e.obj, p.lastValue);
+					changed = true;
+
+					if( pr.hasTransition ) {
+						if( e.transitionValues == null ) e.transitionValues = new Map();
+						e.transitionValues.set(pr.id, p.lastValue);
+						pr.transTag = tag - 1;
 					}
+				}
 
-					if( (pr.transTag == tag || pr.transTag == ntag) && !firstInit ) {
-						pr.transTag = ntag;
-						addTransition(pr, h, p.lastValue);
-					} else {
-						h.apply(e.obj, p.lastValue);
-						changed = true;
-
-						if( pr.hasTransition ) {
-							if( e.transitionValues == null ) e.transitionValues = new Map();
-							e.transitionValues.set(pr.id, p.lastValue);
-							pr.transTag = tag - 1;
-						}
+				if( pr.tag != ntag ) {
+					if( Properties.KEEP_VALUES ) {
+						e.initCurrentValues();
+						e.currentValues.push(p.value);
 					}
-
-					if( pr.tag != ntag ) {
-						if( Properties.KEEP_VALUES ) {
-							e.initCurrentValues();
-							e.currentValues.push(p.value);
-						}
-						e.currentSet.push(pr);
-						pr.tag = ntag;
-					} else {
-						if( Properties.KEEP_VALUES ) {
-							e.initCurrentValues();
-							e.currentValues[e.currentSet.indexOf(pr)] = p.value;
-						}
+					e.currentSet.push(pr);
+					pr.tag = ntag;
+				} else {
+					if( Properties.KEEP_VALUES ) {
+						e.initCurrentValues();
+						e.currentValues[e.currentSet.indexOf(pr)] = p.value;
 					}
-				var n = p.next;
-				p.next = null;
-				p = n;
+				}
+				p = next;
 			}
 
 			// cancel transitions that are no longer valid
