@@ -417,13 +417,11 @@ class CssStyle {
 
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
-				var match = false;
 				var i = r.style.length - 1;
 				while( i >= 0 ) {
 					var p = r.style[i--];
 					if( p.p.tag != tag ) {
 						p.p.tag = tag;
-						match = true;
 						p.next = head;
 						head = p;
 					}
