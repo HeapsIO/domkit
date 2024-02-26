@@ -385,14 +385,7 @@ class CssStyle {
 			componentsBits = prevBits;
 	}
 
-	var wasHover = false;
 	function applyStyleRec( e : Properties<Dynamic>, force : Bool, rules : Array<Rule> ) {
-		if (Std.isOfType(e.obj?.parent, ui.hud.AlertsUI.AlertButton) && e.hasClass("alert-cont")) {
-			if (wasHover != e.obj.parent.dom.hover) {
-				trace("Parent hover changed");
-				wasHover = e.obj.parent.dom.hover;
-			}
-		}
 
 		var prev = -1;
 		if( useSmartCache ) {

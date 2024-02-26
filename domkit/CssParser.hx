@@ -262,7 +262,7 @@ class CssParser {
 		return false;
 	}
 
-	public function parse( css : String, file : String ) {
+	public function parse( css : String, ?file : String ) {
 		this.css = css;
 		pos = 0;
 		this.file = file;
@@ -413,7 +413,7 @@ class CssParser {
 		return { classes : classes, style : rules, transitions : trans, subRules : subRules };
 	}
 
-	public function parseSheet( css : String, file : String ) : CssSheet {
+	public function parseSheet( css : String, ?file : String ) : CssSheet {
 		this.css = css;
 		pos = 0;
 		this.file = file;
@@ -474,7 +474,7 @@ class CssParser {
 		return [elt];
 	}
 
-	public function parseClasses( css : String, ?hasParent, file : String ) {
+	public function parseClasses( css : String, ?hasParent, ?file : String ) {
 		this.css = css;
 		pos = 0;
 		this.file = file;
