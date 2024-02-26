@@ -46,7 +46,7 @@ class Macros {
 		}
 		try {
 			var parser = new CssParser();
-			var rules = parser.parseSheet(content);
+			var rules = parser.parseSheet(content, file);
 			var components : Array<Component<Dynamic,Dynamic>> = [for( c in COMPONENTS ) c];
 			inline function height(c:Component<Dynamic,Dynamic>) {
 				var h = 0;

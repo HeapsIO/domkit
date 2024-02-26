@@ -118,7 +118,7 @@ typedef CssSheet = Array<CssSheetElement>;
 
 typedef CssSheetElement = {
 	var classes : Array<CssClass>;
-	var style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int }>;
+	var style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int, file: String }>;
 	var ?transitions : Array<Transition>;
 	var ?subRules : CssSheet;
  }
@@ -178,6 +178,7 @@ class CssParser {
 
 	var css : String;
 	var pos : Int;
+	var file: String;
 	var tokenStart : Int;
 	var valueStart : Int;
 
@@ -261,9 +262,10 @@ class CssParser {
 		return false;
 	}
 
-	public function parse( css : String ) {
+	public function parse( css : String, ?file : String ) {
 		this.css = css;
 		pos = 0;
+		this.file = file;
 		tokens = [];
 		warnings = [];
 		return parseStyle(null, TEof);
@@ -403,7 +405,7 @@ class CssParser {
 				} else
 					warnings.push({ pmin : start, pmax : pos, msg : "Unknown property "+name });
 			} else
-				rules.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos });
+				rules.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos, file: file });
 			if( isToken(eof) )
 				break;
 			expect(TSemicolon);
@@ -411,9 +413,10 @@ class CssParser {
 		return { classes : classes, style : rules, transitions : trans, subRules : subRules };
 	}
 
-	public function parseSheet( css : String ) : CssSheet {
+	public function parseSheet( css : String, ?file : String ) : CssSheet {
 		this.css = css;
 		pos = 0;
+		this.file = file;
 		tokens = [];
 		warnings = [];
 		warnedComponents = new Map();
@@ -471,9 +474,10 @@ class CssParser {
 		return [elt];
 	}
 
-	public function parseClasses( css : String, ?hasParent ) {
+	public function parseClasses( css : String, ?hasParent, ?file : String ) {
 		this.css = css;
 		pos = 0;
+		this.file = file;
 		tokens = [];
 		var c = readClasses(hasParent);
 		expect(TEof);
