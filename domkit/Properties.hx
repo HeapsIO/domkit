@@ -65,7 +65,10 @@ class Properties<T:Model<T>> {
 		return classes.indexOf(new Identifier(name)) >= 0;
 	}
 
+	public var ignoreParentChange = false;
 	public function onParentChanged() {
+		if (ignoreParentChange)
+			return;
 		var p = parent;
 		if( p == null )
 			dirty = new DirtyRef();
