@@ -295,8 +295,9 @@ class Properties<T:Model<T>> {
 					found = true;
 					if( KEEP_VALUES ) {
 						initCurrentValues();
-						currentValues[currentSet.indexOf(p)] = value;
-						currentRuleStyles[currentSet.indexOf(p)] = null;
+						var idx = currentSet.indexOf(p);
+						currentValues[idx] = value;
+						currentRuleStyles[idx] = null;
 					}
 					break;
 				}

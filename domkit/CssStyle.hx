@@ -518,7 +518,7 @@ class CssStyle {
 				if( pr.tag != ntag ) {
 					if( Properties.KEEP_VALUES ) {
 						e.initCurrentValues();
-						e.currentValues.push(null);
+						e.currentValues.push(p.value);
 						e.currentRuleStyles.push(p);
 					}
 					e.currentSet.push(pr);
@@ -526,8 +526,9 @@ class CssStyle {
 				} else {
 					if( Properties.KEEP_VALUES ) {
 						e.initCurrentValues();
-						e.currentValues[e.currentSet.indexOf(pr)] = null;
-						e.currentRuleStyles[e.currentSet.indexOf(pr)] = p;
+						var idx = e.currentSet.indexOf(pr);
+						e.currentValues[idx] = p.value;
+						e.currentRuleStyles[idx] = p;
 					}
 				}
 				p = next;
