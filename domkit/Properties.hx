@@ -33,6 +33,7 @@ class Properties<T:Model<T>> {
 	var style : Array<{ p : Property, value : Any }> = [];
 	var currentSet : Array<Property> = [];
 	var currentValues : Array<CssValue>; // only for inspector
+	var currentRuleStyles : Array<CssStyle.RuleStyle>; // only for inspector
 	var transitionValues : Map<Int,Dynamic>;
 	var needStyleRefresh : Bool = true;
 	var firstInit : Bool = true;
@@ -294,7 +295,9 @@ class Properties<T:Model<T>> {
 					found = true;
 					if( KEEP_VALUES ) {
 						initCurrentValues();
-						currentValues[currentSet.indexOf(p)] = value;
+						var idx = currentSet.indexOf(p);
+						currentValues[idx] = value;
+						currentRuleStyles[idx] = null;
 					}
 					break;
 				}
@@ -302,6 +305,7 @@ class Properties<T:Model<T>> {
 				if( KEEP_VALUES ) {
 					initCurrentValues();
 					currentValues.push(value);
+					currentRuleStyles.push(null);
 				}
 				currentSet.push(p);
 			}
@@ -317,6 +321,8 @@ class Properties<T:Model<T>> {
 	function initCurrentValues() {
 		if( currentValues == null )
 			currentValues = [for( s in currentSet ) null];
+		if( currentRuleStyles == null )
+			currentRuleStyles = [for( s in currentSet ) null];
 	}
 
 	static var pclass = Property.get("class");

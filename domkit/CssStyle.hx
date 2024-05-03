@@ -6,9 +6,11 @@ class RuleStyle {
 	public var lastHandler : Component.PropertyHandler<Dynamic,Dynamic>;
 	public var lastValue : Dynamic;
 	public var next : RuleStyle;
-	public function new(p,value) {
+	public var pos : { pmin : Int, vmin : Int, pmax : Int, file: String };
+	public function new(p, value, ?pos) {
 		this.p = p;
 		this.value = value;
+		this.pos = pos;
 	}
 }
 
@@ -207,9 +209,9 @@ class CssData {
 					switch( s.value ) {
 					case VLabel("important", val):
 						if( important == null ) important = [];
-						important.push(new RuleStyle(s.p,val));
+						important.push(new RuleStyle(s.p, val, s));
 					default:
-						rule.style.push(new RuleStyle(s.p,s.value));
+						rule.style.push(new RuleStyle(s.p, s.value, s));
 					}
 				rule.priority = priority;
 				if( r.transitions != null ) {
@@ -462,6 +464,7 @@ class CssStyle {
 					changed = true;
 					e.currentSet.remove(p);
 					if( e.currentValues != null ) e.currentValues.splice(i+1,1);
+					if( e.currentRuleStyles != null ) e.currentRuleStyles.splice(i+1,1);
 					var h = e.component.getHandler(p);
 					if( p.transTag == tag ) {
 						p.transTag = ntag;
@@ -516,13 +519,16 @@ class CssStyle {
 					if( Properties.KEEP_VALUES ) {
 						e.initCurrentValues();
 						e.currentValues.push(p.value);
+						e.currentRuleStyles.push(p);
 					}
 					e.currentSet.push(pr);
 					pr.tag = ntag;
 				} else {
 					if( Properties.KEEP_VALUES ) {
 						e.initCurrentValues();
-						e.currentValues[e.currentSet.indexOf(pr)] = p.value;
+						var idx = e.currentSet.indexOf(pr);
+						e.currentValues[idx] = p.value;
+						e.currentRuleStyles[idx] = p;
 					}
 				}
 				p = next;
