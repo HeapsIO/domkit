@@ -43,6 +43,7 @@ class CssTransition {
 	public var vstart : Dynamic;
 	public var vtarget : Dynamic;
 	public var progress : Float;
+	public var discrete : Bool;
 	public function new() {
 	}
 }
@@ -267,8 +268,7 @@ class CssStyle {
 		var vstart : Dynamic = e.transitionValues.get(trans.p.id);
 		if( vstart == null ) vstart = h.defaultValue;
 		if( vtarget == null ) vtarget = h.defaultValue;
-		if( h.transition == null && !Std.isOfType(vtarget == null ? vstart : vtarget,Float) )
-			throw "Cannot add transition on "+e.component.name+"."+trans.p.name+" : unsupported value "+Std.string(vtarget == null ? vstart : vtarget);
+
 		for( c in currentTransitions ) {
 			if( c.properties == e && c.trans.p == trans.p ) {
 				// return to same value ?
@@ -289,6 +289,7 @@ class CssStyle {
 		t.trans = trans;
 		t.vstart = vstart;
 		t.vtarget = vtarget;
+		t.discrete = !Std.isOfType(vtarget == null ? vstart : vtarget, Float);
 		t.progress = 0;
 		e.transitionCount++;
 		currentTransitions.push(t);
@@ -596,6 +597,8 @@ class CssStyle {
 				max--;
 			} else if( c.handler.transition != null )
 				current = c.handler.transition(c.vstart, c.vtarget, c.trans.curve.interpolate(c.progress));
+			else if(c.discrete)
+				current = c.progress < 1 ? c.vstart : c.vtarget;
 			else {
 				var vstart : Float = c.vstart;
 				var vtarget : Float = c.vtarget;
