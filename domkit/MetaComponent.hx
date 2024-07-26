@@ -15,6 +15,7 @@ class MetaError {
 enum ParserMode {
 	PNone;
 	PAuto;
+	PCustom;
 }
 
 class MetaComponent extends Component<Dynamic,Dynamic> {
@@ -28,6 +29,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	var baseClass : ClassType;
 	var constructorPath : Array<String>;
 	var constructorArgs : Array<{ type : ComplexType, name : String, opt : Bool }>;
+	var parserDependencies : Map<String, Field> = new Map();
 
 	public function new( t : Type, fields : Array<Field> ) {
 		classType = switch( t ) {
@@ -231,6 +233,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			case EConst(CIdent("auto")):
 				parserMode = PAuto;
 			case EConst(CIdent(name)):
+				parserMode = PCustom;
 				var fname = "parse"+componentNameToClass(name);
 				var meth = Reflect.field(this.parser,fname);
 				if( meth == null )
@@ -323,6 +326,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					case PAuto:
 						p.expr = macro parser.parseAuto.bind(${p.expr});
 						p.value = parser.parseAuto.bind(p.value);
+					case PCustom:
 					}
 					p.def = null;
 				}
@@ -335,21 +339,137 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				return  { expr : macro parser.parseString, value : parser.parseString, def : null };
 			default:
 			}
-		case TEnum(en,_):
-			var idents = [for( n in en.get().names ) CssParser.haxeToCss(n)];
-			var fallback = [for( n in en.get().names ) n.toLowerCase()];
-			var enexpr = makeTypeExpr(en.get(), pos);
-			return {
-				expr : macro parser.makeEnumParser($enexpr),
+		case TEnum(en, params):
+			var enumType = en.get();
+			var idents = [for( n in enumType.names ) CssParser.haxeToCss(n)];
+			var fallback = [for( n in enumType.names ) n.toLowerCase()];
+			var enexpr = makeTypeExpr(enumType, pos);
+
+			if (mode == PCustom) {
+				return {
+					expr : macro parser.makeEnumParser($enexpr),
+					value : function(css:CssValue) {
+						return switch( css ) {
+						case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
+						case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
+						default: parser.invalidProp();
+						}
+					},
+					def : null,
+				};
+			}
+			var fname = "parse" + enumType.name;
+			var ret = {
+				expr: (macro $i{fname}),
 				value : function(css:CssValue) {
 					return switch( css ) {
-					case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
-					case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
+					case VIdent(i), VCall(i, _) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
+					case VIdent(v), VCall(v, _): parser.invalidProp(v+" should be "+idents.join("|"));
 					default: parser.invalidProp();
 					}
 				},
 				def : null,
 			};
+			var parserField = parserDependencies.get(fname);
+			if (parserField != null) {
+				return ret;
+			}
+			parserField = {
+				name: fname,
+				pos: pos,
+				kind: FFun({
+					args: [ { name: "css", type: (macro : CssValue) } ],
+					expr: macro {},
+				}),
+			};
+			parserDependencies.set(fname, parserField);
+
+
+			var withParam: Array<String> = [];
+			var withoutParam: Array<String> = [];
+			var paramCases: Array<Case> = [];
+			for( nameIndex in 0...enumType.names.length ) {
+				var n = enumType.names[nameIndex];
+				var constr = enumType.constructs.get(n);
+				switch (constr.type) {
+					case TFun(args, _):
+						withParam.push(n);
+						var lastRequired = -1;
+						for( i in 0...args.length ) {
+							if( !args[i].opt )
+								lastRequired = i;
+						}
+						if( lastRequired < 0 )
+							withoutParam.push(n);
+
+						var parsers = [];
+						for (i in 0...args.length) {
+							var a = args[i];
+							var parser = parserFromType(a.t, pos, mode);
+							parsers.push(macro {
+								if (callArgs.length > $v{i}) {
+									var arg = callArgs[$v{i}];
+									enumArgs.push(${parser.expr}(arg));
+								}
+							});
+						}
+						var paramExpr = macro {
+							if (callArgs.length < $v{lastRequired + 1})
+								return parser.invalidProp(i+" requires at least "+$v{lastRequired + 1}+" parameters");
+							var enumArgs: Array<Dynamic> = [];
+							$b{parsers}
+							return $enexpr.createByIndex($v{nameIndex}, enumArgs);
+						};
+						paramCases.push({
+							values: [macro $v{n}],
+							expr: paramExpr,
+						});
+					default:
+						withoutParam.push(n);
+				}
+			}
+			var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join("|"));
+			var paramSwitch = {pos: pos, expr: ESwitch(macro named, paramCases, macro return $invalidEnum)};
+
+			parserField.kind = FFun({
+				args: [ { name: "css", type: (macro : CssValue) } ],
+				expr: macro {
+					#if (haxe_ver >= 4.3) static #end var withParam = $v{withParam};
+					#if (haxe_ver >= 4.3) static #end var withoutParam = $v{withoutParam};
+					#if (haxe_ver >= 4.3) static #end var all = $v{enumType.names};
+					#if (haxe_ver >= 4.3) static #end var idents = $v{idents};
+					#if (haxe_ver >= 4.3) static #end var fallback = $v{fallback};
+					inline function getIndex(str: String) {
+						var idx = idents.indexOf(str);
+						if( idx < 0 )
+							idx = fallback.indexOf(str);
+						return idx;
+					}
+					switch( css ) {
+						case VIdent(i):
+							var idx = getIndex(i);
+							if( idx < 0 )
+								return $invalidEnum;
+							var named = all[idx];
+							if( withoutParam.contains(named) )
+								return $enexpr.createByIndex(idx);
+							return parser.invalidProp(i+" requires parameters");
+						case VCall(i, callArgs):
+							var idx = getIndex(i);
+							if( idx < 0 )
+								return $invalidEnum;
+							var named = all[idx];
+							if( !withParam.contains(named) )
+								return parser.invalidProp(i+" requires no parameters");
+
+							$paramSwitch;
+						default:
+							return parser.invalidProp();
+					}
+				},
+			});
+
+			return ret;
 		case TType(_):
 			return parserFromType(t.follow(true), pos, mode);
 		default:
@@ -455,6 +575,10 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			}
 			@:keep static var inst = new domkit.$cname();
 		}).fields;
+
+		for (n => f in parserDependencies) {
+			fields.push(f);
+		}
 
 		var td : TypeDefinition = {
 			pos : classType.pos,
