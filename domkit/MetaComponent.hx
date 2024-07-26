@@ -29,6 +29,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	var baseClass : ClassType;
 	var constructorPath : Array<String>;
 	var constructorArgs : Array<{ type : ComplexType, name : String, opt : Bool }>;
+	var parserDependencies : Map<String, Field> = new Map();
 
 	public function new( t : Type, fields : Array<Field> ) {
 		classType = switch( t ) {
@@ -350,13 +351,40 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					value : function(css:CssValue) {
 						return switch( css ) {
 						case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
-						case VIdent(v): parser.invalidProp(v+" should be "+idents.join(" | "));
+						case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
 						default: parser.invalidProp();
 						}
 					},
 					def : null,
 				};
 			}
+			var fname = "parse" + enumType.name;
+			var ret = {
+				expr: (macro $i{fname}),
+				value : function(css:CssValue) {
+					return switch( css ) {
+					case VIdent(i), VCall(i, _) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
+					case VIdent(v), VCall(v, _): parser.invalidProp(v+" should be "+idents.join("|"));
+					default: parser.invalidProp();
+					}
+				},
+				def : null,
+			};
+			var parserField = parserDependencies.get(fname);
+			if (parserField != null) {
+				return ret;
+			}
+			parserField = {
+				name: fname,
+				pos: pos,
+				kind: FFun({
+					args: [ { name: "css", type: (macro : CssValue) } ],
+					expr: macro {},
+				}),
+			};
+			parserDependencies.set(fname, parserField);
+
+
 			var withParam: Array<String> = [];
 			var withoutParam: Array<String> = [];
 			var paramCases: Array<Case> = [];
@@ -400,55 +428,48 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						withoutParam.push(n);
 				}
 			}
-			var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join(" | "));
+			var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join("|"));
 			var paramSwitch = {pos: pos, expr: ESwitch(macro named, paramCases, macro return $invalidEnum)};
 
-			var parseExpr = macro function(css: CssValue) {
-				var withParam = $v{withParam};
-				var withoutParam = $v{withoutParam};
-				var all = $v{enumType.names};
-				var idents = $v{idents};
-				var fallback = $v{fallback};
-				inline function getIndex(str: String) {
-					var idx = idents.indexOf(str);
-					if( idx < 0 )
-						idx = fallback.indexOf(str);
-					return idx;
-				}
-				switch( css ) {
-					case VIdent(i):
-						var idx = getIndex(i);
+			parserField.kind = FFun({
+				args: [ { name: "css", type: (macro : CssValue) } ],
+				expr: macro {
+					#if (haxe_ver >= 4.3) static #end var withParam = $v{withParam};
+					#if (haxe_ver >= 4.3) static #end var withoutParam = $v{withoutParam};
+					#if (haxe_ver >= 4.3) static #end var all = $v{enumType.names};
+					#if (haxe_ver >= 4.3) static #end var idents = $v{idents};
+					#if (haxe_ver >= 4.3) static #end var fallback = $v{fallback};
+					inline function getIndex(str: String) {
+						var idx = idents.indexOf(str);
 						if( idx < 0 )
-							return $invalidEnum;
-						var named = all[idx];
-						if( withoutParam.contains(named) )
-							return $enexpr.createByIndex(idx);
-						return parser.invalidProp(i+" requires parameters");
-					case VCall(i, callArgs):
-						var idx = getIndex(i);
-						if( idx < 0 )
-							return $invalidEnum;
-						var named = all[idx];
-						if( !withParam.contains(named) )
-							return parser.invalidProp(i+" requires no parameters");
+							idx = fallback.indexOf(str);
+						return idx;
+					}
+					switch( css ) {
+						case VIdent(i):
+							var idx = getIndex(i);
+							if( idx < 0 )
+								return $invalidEnum;
+							var named = all[idx];
+							if( withoutParam.contains(named) )
+								return $enexpr.createByIndex(idx);
+							return parser.invalidProp(i+" requires parameters");
+						case VCall(i, callArgs):
+							var idx = getIndex(i);
+							if( idx < 0 )
+								return $invalidEnum;
+							var named = all[idx];
+							if( !withParam.contains(named) )
+								return parser.invalidProp(i+" requires no parameters");
 
-						$paramSwitch;
-					default:
-						return parser.invalidProp();
-				}
-			}
-
-			return {
-				expr : parseExpr,
-				value : function(css:CssValue) {
-					return switch( css ) {
-					case VIdent(i), VCall(i, _) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
-					case VIdent(v), VCall(v, _): parser.invalidProp(v+" should be "+idents.join(" | "));
-					default: parser.invalidProp();
+							$paramSwitch;
+						default:
+							return parser.invalidProp();
 					}
 				},
-				def : null,
-			};
+			});
+
+			return ret;
 		case TType(_):
 			return parserFromType(t.follow(true), pos, mode);
 		default:
@@ -554,6 +575,10 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			}
 			@:keep static var inst = new domkit.$cname();
 		}).fields;
+
+		for (n => f in parserDependencies) {
+			fields.push(f);
+		}
 
 		var td : TypeDefinition = {
 			pos : classType.pos,
