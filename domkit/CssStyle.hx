@@ -132,6 +132,13 @@ class CssData {
 		return dp == 0 ? r2.id - r1.id : dp;
 	}
 
+	public static function registerComponent(c:Component<Dynamic,Dynamic>) {
+		if( c != null && c.id < 0 ) {
+			COMPONENTS.push(c);
+			c.id = CID++;
+		}
+	}
+
 	public function init() {
 		if( needsInit ) {
 			needsInit = false;
@@ -141,10 +148,8 @@ class CssData {
 			for( r in rules ) {
 				var cl = r.cl;
 				while( cl != null ) {
-					if( cl.component != null && cl.component.id < 0 ) {
-						COMPONENTS.push(cl.component);
-						cl.component.id = CID++;
-					}
+					if( cl.component != null )
+						registerComponent(cl.component);
 					cl = cl.parent;
 				}
 			}
@@ -152,10 +157,8 @@ class CssData {
 			while( prev < COMPONENTS.length ) {
 				var c = COMPONENTS[prev++];
 				for( c2 in @:privateAccess Component.COMPONENTS ) {
-					if( c2.parent == c && c2.id < 0 ) {
-						COMPONENTS.push(c2);
-						c2.id = CID++;
-					}
+					if( c2.parent == c )
+						registerComponent(c2);
 				}
 			}
 			bytesSize = -1;
