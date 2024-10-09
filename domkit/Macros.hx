@@ -19,6 +19,7 @@ class Macros {
 	#if macro
 
 	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
+	@:persistent static var COMPONENTS_REMAP = new Map<String, String>();
 	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
 	@:persistent static var preload : Array<String> = [];

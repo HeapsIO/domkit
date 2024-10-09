@@ -479,12 +479,22 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 
 	function getCompName( c : ClassType, opt = false ) {
 		var name = c.meta.extract(":uiComp")[0];
-		if( name == null ) return c.meta.has(":uiNoComponent") || (opt && c.pack[0] == "h2d") ? null : CssParser.haxeToCss(c.name);
-		if( name.params.length == 0 ) error("Invalid :uiComp", name.pos);
-		return switch( name.params[0].expr ) {
-		case EConst(CString(name)): name;
-		default: error("Invalid :uiComp", name.pos);
+		var ret = null;
+		if( name == null ) {
+			var noComp = c.meta.has(":uiNoComponent") || (opt && c.pack[0] == "h2d");
+			if (!noComp)
+				ret = CssParser.haxeToCss(c.name);
+		} else {
+			if( name.params.length == 0 ) error("Invalid :uiComp", name.pos);
+			ret = switch( name.params[0].expr ) {
+				case EConst(CString(name)): name;
+				default: error("Invalid :uiComp", name.pos);
+			}
 		}
+		@:privateAccess if (ret != null && Macros.COMPONENTS_REMAP.exists(ret)) {
+			ret = Macros.COMPONENTS_REMAP.get(ret);
+		}
+		return ret;
 	}
 
 	function error( msg : String, pos : Position ) : Dynamic {
