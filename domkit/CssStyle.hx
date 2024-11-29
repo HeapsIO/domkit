@@ -223,7 +223,7 @@ class CssData {
 					for( t in r.transitions )
 						rule.transitions.push(new RuleTransition(t.p, t.time, t.curve));
 				}
-				if( rule.style.length > 0 )
+				if( rule.style.length > 0 || rule.transitions != null )
 					rules.push(rule);
 				if( important != null ) {
 					var tr = rule.transitions;
