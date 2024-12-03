@@ -97,7 +97,7 @@ class Macros {
 					// Try with locally available types (imports, etc.)
 					var ct = Context.resolveComplexType(TPath({pack: [], name: tpath.sub ?? tpath.name}), pos);
 					switch (ct) {
-						case TPath({pack: pack}) if (pack.join(".") == tpath.pack.join(".")): Context.resolveType(ct, pos);
+						case TPath({pack: pack}) if (pack.join(".") == tpath.pack.join(".")): ct.toType();
 						case ct: continue;
 					}
 				} catch(e:Dynamic) {
