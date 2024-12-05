@@ -227,7 +227,7 @@ class Properties<T:Model<T>> {
 	 */
 	public function setClassKind( kind : String, value : String ) {
 		kind += "-";
-		var full = new Identifier(kind + value);
+		var full = value == null ? null : new Identifier(kind + value);
 		if( classes == null ) classes = [];
 		for( c in classes )
 			if( StringTools.startsWith(c.toString(),kind) ) {
@@ -235,7 +235,10 @@ class Properties<T:Model<T>> {
 				classes.remove(c);
 				break;
 			}
-		classes.push(full);
+		if( full != null )
+			classes.push(full);
+		else if( classes.length == 0 )
+			classes = null;
 		needRefresh();
 	}
 
