@@ -478,7 +478,7 @@ class Macros {
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, pos, true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, Context.currentPos(), true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
@@ -555,10 +555,10 @@ class Macros {
 					var ct : ComplexType = TAnonymous([for( a in f.args ) {
 						name : a.name,
 						kind : FVar(a.type,a.value),
-						pos : cl.pos,
-						meta : a.opt ? [{name:":optional",pos:cl.pos}] : null }
+						pos : Context.currentPos(),
+						meta : a.opt ? [{name:":optional",pos:Context.currentPos()}] : null }
 					]);
-					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],cl.pos);
+					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],Context.currentPos());
 					if( found == null && !Context.defined("display") )
 						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
@@ -569,7 +569,7 @@ class Macros {
 			return;
 		if( initArgs == null ) {
 			if( initFunc == "new" )
-				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:cl.pos}], pos : cl.pos }];
+				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:Context.currentPos()}], pos : Context.currentPos() }];
 			else {
 				Context.error("Missing function "+initFunc, Context.currentPos());
 				return;
@@ -578,7 +578,7 @@ class Macros {
 		var anames = [for( a in initArgs ) macro $i{a.name}];
 		fields.push({
 			name : initFunc,
-			pos : cl.pos,
+			pos : Context.currentPos(),
 			kind : FFun({
 				ret : null,
 				args : [for( a in initArgs) {
