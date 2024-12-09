@@ -468,6 +468,7 @@ class Macros {
 
 	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field>, rootName : String ) {
 		var p = new MarkupParser();
+		var currentPos = Context.currentPos();
 		var pinf = Context.getPosInfos(pos);
 		var root = p.parse(str,pinf.file,pinf.min).children[0];
 
@@ -478,7 +479,7 @@ class Macros {
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, Context.currentPos(), true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
@@ -555,10 +556,10 @@ class Macros {
 					var ct : ComplexType = TAnonymous([for( a in f.args ) {
 						name : a.name,
 						kind : FVar(a.type,a.value),
-						pos : Context.currentPos(),
-						meta : a.opt ? [{name:":optional",pos:Context.currentPos()}] : null }
+						pos : currentPos,
+						meta : a.opt ? [{name:":optional",pos:currentPos}] : null }
 					]);
-					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],Context.currentPos());
+					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],currentPos);
 					if( found == null && !Context.defined("display") )
 						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
@@ -569,16 +570,16 @@ class Macros {
 			return;
 		if( initArgs == null ) {
 			if( initFunc == "new" )
-				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:Context.currentPos()}], pos : Context.currentPos() }];
+				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:currentPos}], pos : currentPos }];
 			else {
-				Context.error("Missing function "+initFunc, Context.currentPos());
+				Context.error("Missing function "+initFunc, currentPos);
 				return;
 			}
 		}
 		var anames = [for( a in initArgs ) macro $i{a.name}];
 		fields.push({
 			name : initFunc,
-			pos : Context.currentPos(),
+			pos : currentPos,
 			kind : FFun({
 				ret : null,
 				args : [for( a in initArgs) {
