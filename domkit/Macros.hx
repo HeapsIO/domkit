@@ -466,9 +466,14 @@ class Macros {
 		return false;
 	}
 
-	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field>, rootName : String ) {
+	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Null<Position>, fields : Array<Field>, rootName : String ) {
+		var currentPos = pos;
+		if( pos == null ) {
+			pos = cl.pos;
+			currentPos = Context.currentPos();
+		}
+
 		var p = new MarkupParser();
-		var currentPos = Context.currentPos();
 		var pinf = Context.getPosInfos(pos);
 		var root = p.parse(str,pinf.file,pinf.min).children[0];
 
@@ -654,7 +659,7 @@ class Macros {
 			}
 			fields.remove(hasDocument.f);
 		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
-			buildDocument(cl, '<$foundComp></$foundComp>', cl.pos, fields, foundComp);
+			buildDocument(cl, '<$foundComp></$foundComp>', null, fields, foundComp);
 		}
 		return fields;
 	}
