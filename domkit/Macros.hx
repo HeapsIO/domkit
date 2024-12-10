@@ -466,7 +466,13 @@ class Macros {
 		return false;
 	}
 
-	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Position, fields : Array<Field>, rootName : String ) {
+	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Null<Position>, fields : Array<Field>, rootName : String ) {
+		var currentPos = pos;
+		if( pos == null ) {
+			pos = cl.pos;
+			currentPos = Context.currentPos();
+		}
+
 		var p = new MarkupParser();
 		var pinf = Context.getPosInfos(pos);
 		var root = p.parse(str,pinf.file,pinf.min).children[0];
@@ -478,7 +484,7 @@ class Macros {
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, pos, true);
+		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
@@ -555,10 +561,10 @@ class Macros {
 					var ct : ComplexType = TAnonymous([for( a in f.args ) {
 						name : a.name,
 						kind : FVar(a.type,a.value),
-						pos : cl.pos,
-						meta : a.opt ? [{name:":optional",pos:cl.pos}] : null }
+						pos : currentPos,
+						meta : a.opt ? [{name:":optional",pos:currentPos}] : null }
 					]);
-					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],cl.pos);
+					cl.meta.add(":domkitInitArgs",[macro ($i{initFunc} : $ct)],currentPos);
 					if( found == null && !Context.defined("display") )
 						Context.error("Missing initComponent() call", f.expr.pos);
 					break;
@@ -569,16 +575,16 @@ class Macros {
 			return;
 		if( initArgs == null ) {
 			if( initFunc == "new" )
-				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:cl.pos}], pos : cl.pos }];
+				initArgs = [{ name : "parent", kind : FVar(componentsType), meta :  [{name:":optional",pos:currentPos}], pos : currentPos }];
 			else {
-				Context.error("Missing function "+initFunc, Context.currentPos());
+				Context.error("Missing function "+initFunc, currentPos);
 				return;
 			}
 		}
 		var anames = [for( a in initArgs ) macro $i{a.name}];
 		fields.push({
 			name : initFunc,
-			pos : cl.pos,
+			pos : currentPos,
 			kind : FFun({
 				ret : null,
 				args : [for( a in initArgs) {
@@ -653,7 +659,7 @@ class Macros {
 			}
 			fields.remove(hasDocument.f);
 		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
-			buildDocument(cl, '<$foundComp></$foundComp>', cl.pos, fields, foundComp);
+			buildDocument(cl, '<$foundComp></$foundComp>', null, fields, foundComp);
 		}
 		return fields;
 	}
