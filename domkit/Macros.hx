@@ -76,10 +76,35 @@ class Macros {
 		}
 
 		var lastError = null;
+		var pos = Context.currentPos();
 		var uname = MetaComponent.componentNameToClass(name);
 		for( p in componentsSearchPath ) {
+			var tpath = {pack: [], name: "", sub: null};
 			var path = p.split("$").join(uname);
-			var t = try Context.getType(path) catch( e : Dynamic ) continue;
+			for (p in path.split(".")) {
+				if (p.charCodeAt(0) >= 'a'.code && p.charCodeAt(0) <= 'z'.code) {
+					tpath.pack.push(p);
+				} else {
+					if (tpath.name == "") tpath.name = p;
+					else if (tpath.sub == null) tpath.sub = p;
+				}
+			}
+
+			var t = try {
+				Context.resolveType(TPath(tpath), pos);
+			} catch(e:Dynamic) {
+				try {
+					// Try with locally available types (imports, etc.)
+					var ct = Context.resolveComplexType(TPath({pack: [], name: tpath.sub ?? tpath.name}), pos);
+					switch (ct) {
+						case TPath({pack: pack}) if (pack.join(".") == tpath.pack.join(".")): ct.toType();
+						case ct: continue;
+					}
+				} catch(e:Dynamic) {
+					continue;
+				}
+			}
+
 			switch( t.follow() ) {
 			case TInst(c,_): c.get(); // force build
 			default:
