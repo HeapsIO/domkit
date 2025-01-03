@@ -29,6 +29,11 @@ class Macros {
 		return null;
 	}
 
+	@:persistent public static dynamic function onSourceLoad( path : String, pos : haxe.macro.Expr.Position, fields : Array<Field> ) : { dml : domkit.MarkupParser.Markup, pos : haxe.macro.Expr.Position } {
+		Context.error("@:source found but no source loader defined", pos);
+		return null;
+	}
+
 	public static function registerComponentsPath( path : String ) {
 		if( componentsSearchPath.indexOf(path) < 0 )
 			componentsSearchPath.push(path);
@@ -466,16 +471,21 @@ class Macros {
 		return false;
 	}
 
-	static function buildDocument( cl : haxe.macro.Type.ClassType, str : String, pos : Null<Position>, fields : Array<Field>, rootName : String ) {
+	static function buildDocument( cl : haxe.macro.Type.ClassType, doc : { ?str : String, ?dml : MarkupParser.Markup, ?pos : Position }, fields : Array<Field>, rootName : String ) {
+		var pos = doc.pos;
 		var currentPos = pos;
 		if( pos == null ) {
 			pos = cl.pos;
 			currentPos = Context.currentPos();
 		}
 
-		var p = new MarkupParser();
-		var pinf = Context.getPosInfos(pos);
-		var root = p.parse(str,pinf.file,pinf.min).children[0];
+		var root = doc.dml;
+		if( root == null ) {
+			var p = new MarkupParser();
+			var pinf = Context.getPosInfos(pos);
+			root = p.parse(doc.str,pinf.file,pinf.min);
+		}
+		root = root.children[0];
 
 		if( rootName != null )
 			switch( root.kind ) {
@@ -620,7 +630,7 @@ class Macros {
 			if( f.name == "SRC" ) {
 				switch( f.kind ) {
 				case FVar(_,{ expr : EMeta({ name : ":markup" },{ expr : EConst(CString(str)) }), pos : pos }):
-					hasDocument = { f : f, str : str, pos : pos };
+					hasDocument = { f : f, str : str, dml : null, pos : pos };
 				default:
 				}
 			}
@@ -628,6 +638,17 @@ class Macros {
 				for( m in f.meta )
 					if( m.name == ":p" )
 						hasMeta = m.pos;
+		}
+		if( hasDocument == null && cl.meta.has(":source") ) {
+			var m = cl.meta.extract(":source")[0];
+			if( m.params != null )
+				switch( m.params[0].expr ) {
+				case EConst(CString(path)):
+					var doc = onSourceLoad(path,m.params[0].pos,fields);
+					if( doc == null ) Context.error("Failed to load domkit source", m.params[0].pos);
+					else hasDocument = { f : null, str : null, dml : doc.dml, pos : doc.pos };
+				default:
+				}
 		}
 
 		var isComp = !cl.meta.has(":uiNoComponent");
@@ -653,13 +674,13 @@ class Macros {
 
 		if( hasDocument != null ) {
 			try {
-				buildDocument(cl, hasDocument.str, hasDocument.pos, fields, foundComp);
+				buildDocument(cl, hasDocument, fields, foundComp);
 			} catch( e : Error ) {
 				Context.error(e.message, makePos(hasDocument.pos,e.pmin,e.pmax));
 			}
 			fields.remove(hasDocument.f);
 		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
-			buildDocument(cl, '<$foundComp></$foundComp>', null, fields, foundComp);
+			buildDocument(cl, { str : '<$foundComp></$foundComp>' }, fields, foundComp);
 		}
 		return fields;
 	}
