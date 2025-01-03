@@ -692,4 +692,97 @@ class MarkupParser {
 	static inline function isValidChar(c) {
 		return (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == ':'.code || c == '.'.code || c == '_'.code || c == '-'.code;
 	}
+
+	static function codeToString( v : CodeExpr ) : String {
+		#if macro
+		return haxe.macro.ExprTools.toString(v);
+		#else
+		return v;
+		#end
+	}
+
+	public static function markupToString( m : Markup ) {
+		var buf = new StringBuf();
+		markupToStringRec(m, buf, "");
+		return buf.toString();
+	}
+
+	static function markupToStringRec( m : Markup, buf : StringBuf, tabs : String ) {
+		if( buf == null ) buf = new StringBuf();
+		switch( m.kind ) {
+		case Node(null):
+			for( c in m.children )
+				markupToStringRec(c,buf,tabs);
+		case Node(name):
+			buf.add('<');
+			buf.add(name);
+			if( m.arguments != null && m.arguments.length > 0 ) {
+				buf.add('(');
+				var first = true;
+				for( a in m.arguments ) {
+					if( first ) first = false else buf.add(',');
+					switch( a.value ) {
+					case RawValue(v): buf.add('"$v"');
+					case Code(v): buf.add(codeToString(v));
+					}
+				}
+				buf.add(')');
+			}
+			if( m.attributes != null ) {
+				for( a in m.attributes ) {
+					buf.add(' ');
+					buf.add(a.name);
+					buf.add('=');
+					switch( a.value ) {
+					case RawValue(v): buf.add('"$v"');
+					case Code(v): buf.add('{${codeToString(v)}}');
+					}
+				}
+			}
+			if( m.condition != null ) {
+				buf.add(' if( ');
+				buf.add(codeToString(m.condition.cond));
+			}
+			if( m.children != null && m.children.length > 0 ) {
+				buf.add('>\n');
+				var prev = tabs;
+				tabs += "\t";
+				for( c in m.children ) {
+					buf.add(tabs);
+					markupToStringRec(c, buf, tabs);
+					buf.add('\n');
+				}
+				var part = name.split(":")[0];
+				buf.add('$prev</$part>');
+			} else {
+				buf.add('/>');
+			}
+		case Text(text):
+			buf.add(StringTools.htmlEscape(text));
+		case CodeBlock(v):
+			buf.add(v);
+		case Macro(id):
+			buf.add('@$id');
+			if( m.arguments != null ) {
+				buf.add('(');
+				var first = true;
+				for( a in m.arguments ) {
+					if( first ) first = false else buf.add(',');
+					switch( a.value ) {
+					case RawValue(v): buf.add('"$v"');
+					case Code(v): buf.add(codeToString(v));
+					}
+				}
+				buf.add(')');
+			}
+		case For(cond):
+			buf.add('for$cond');
+			tabs += "\t";
+			for( c in m.children ) {
+				buf.add("\n"+tabs);
+				markupToStringRec(c, buf, tabs);
+			}
+		}
+	}
+
 }
