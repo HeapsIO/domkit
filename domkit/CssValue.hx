@@ -16,6 +16,85 @@ enum CssValue {
 	VArray( v : CssValue, ?content : CssValue );
 }
 
+class HSL {
+	public var alpha : Float;
+	public var hue : Float;
+	public var saturation : Float;
+	public var lightness : Float;
+
+	public function new(color:Int) {
+		var r = ((color >> 16) & 0xFF) / 255;
+		var g = ((color >> 8) & 0xFF) / 255;
+		var b = (color & 0xFF) / 255;
+		alpha = (color >>> 24) / 255;
+	    var max = hxd.Math.max(hxd.Math.max(r, g), b);
+		var min = hxd.Math.min(hxd.Math.min(r, g), b);
+		var h, s, l = (max + min) / 2.0;
+
+		if(max == min)
+			h = s = 0.0; // achromatic
+		else {
+			var d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+			if(max == r)
+				h = (g - b) / d + (g < b ? 6.0 : 0.0);
+			else if(max == g)
+				h = (b - r) / d + 2.0;
+			else
+				h = (r - g) / d + 4.0;
+			h *= Math.PI / 3.0;
+		}
+		this.hue = h;
+		this.saturation = s;
+		this.lightness = l;
+	}
+
+	public function toColor() {
+		var r:Float,g:Float,b:Float;
+		var hue = hue % (Math.PI * 2);
+		var saturation = saturation;
+		if( saturation < 0 ) saturation = 0 else if( saturation > 1 ) saturation = 1;
+		if( hue < 0 ) hue += Math.PI * 2;
+		var c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+		var x = c * (1 - Math.abs((hue * 3 / Math.PI) % 2. - 1));
+		var m = lightness - c / 2;
+		if( hue < Math.PI / 3 ) {
+			r = c;
+			g = x;
+			b = 0;
+		} else if( hue < Math.PI * 2 / 3 ) {
+			r = x;
+			g = c;
+			b = 0;
+		} else if( hue < Math.PI ) {
+			r = 0;
+			g = c;
+			b = x;
+		} else if( hue < Math.PI * 4 / 3 ) {
+			r = 0;
+			g = x;
+			b = c;
+		} else if( hue < Math.PI * 5 / 3 ) {
+			r = x;
+			g = 0;
+			b = c;
+		} else {
+			r = c;
+			g = 0;
+			b = x;
+		}
+		r += m;
+		g += m;
+		b += m;
+		var a = alpha;
+		if( r < 0 ) r = 0 else if( r > 1 ) r = 1;
+		if( g < 0 ) g = 0 else if( g > 1 ) g = 1;
+		if( b < 0 ) b = 0 else if( b > 1 ) b = 1;
+		if( a < 0 ) a = 0 else if( a > 1 ) a = 1;
+		return (Std.int(a*255 + 0.499) << 24) | (Std.int(r * 255 + 0.499) << 16) | (Std.int(g * 255 + 0.499) << 8) | Std.int(b * 255 + 0.499);
+	}
+}
+
 class ValueParser {
 
 	var defaultColor = 0;
@@ -102,6 +181,26 @@ class ValueParser {
 			var c = CSS_COLORS.get(i);
 			if( c == null ) invalidProp();
 			return c | 0xFF000000;
+		case VCall("darken",[color,VUnit(percent,"%")]):
+			var c = parseColor(color);
+			var c = new HSL(c);
+			c.lightness -= percent / 100;
+			return c.toColor();
+		case VCall("lighten",[color,VUnit(percent,"%")]):
+			var c = parseColor(color);
+			var c = new HSL(c);
+			c.lightness += percent / 100;
+			return c.toColor();
+		case VCall("saturate",[color,VUnit(percent,"%")]):
+			var c = parseColor(color);
+			var c = new HSL(c);
+			c.saturation += percent / 100;
+			return c.toColor();
+		case VCall("desaturate",[color,VUnit(percent,"%")]):
+			var c = parseColor(color);
+			var c = new HSL(c);
+			c.saturation -= percent / 100;
+			return c.toColor();
 		default:
 			return invalidProp();
 		}
