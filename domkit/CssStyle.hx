@@ -181,7 +181,7 @@ class CssData {
 	public function add( sheet : CssParser.CssSheet ) {
 		for( r in sheet ) {
 			for( cl in r.classes ) {
-				var nids = 0, nothers = 0, nnodes = 0;
+				var nids = 0, nothers = 0, nnodes = 0, notimp = false;
 				var c = cl;
 				while( c != null ) {
 					if( c.id.isDefined() ) nids++;
@@ -199,6 +199,8 @@ class CssData {
 							if( i & 1 != 0 ) nothers++;
 							i >>>= 1;
 						}
+						if( c.pseudoClasses.has(NotImportant) )
+							notimp = true;
 					}
 					if( c.className != null ) nothers++;
 					c = c.parent;
@@ -218,6 +220,7 @@ class CssData {
 						rule.style.push(new RuleStyle(s.p, s.value, s));
 					}
 				rule.priority = priority;
+				if( notimp ) rule.priority -= 1 << 30;
 				if( r.transitions != null ) {
 					rule.transitions = [];
 					for( t in r.transitions )

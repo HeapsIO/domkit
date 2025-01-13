@@ -39,9 +39,10 @@ enum abstract PseudoClass(Int) {
 	var Active = 32;
 	var Disabled = 64;
 	var Focus = 128;
+	var NotImportant = 256;
 
 	// set for some flags requiring children checks
-	var NeedChildren = 256;
+	var NeedChildren = 512;
 
 	inline function new(v:Int) {
 		this = v;
@@ -604,6 +605,8 @@ class CssParser {
 							c.pseudoClasses |= Active;
 						case "focus":
 							c.pseudoClasses |= Focus;
+						case "not-important":
+							c.pseudoClasses |= NotImportant;
 						default:
 							throw new Error("Unknown selector "+i, pos - i.length - 1, pos);
 						}
