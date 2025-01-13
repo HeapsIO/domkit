@@ -116,6 +116,8 @@ class MarkupParser {
 		#if macro
 		var e = try {
 			var pos = haxe.macro.Context.makePosition({ min : filePos + start, max : filePos + start + v.length, file : fileName });
+			// Make sure Haxe lexer knows about that file (required to make positions behave on external domkit files)
+			haxe.macro.PositionTools.toLocation(pos);
 			haxe.macro.Context.parseInlineString(v,pos);
 		} catch( e : Dynamic ) {
 			// fallback for attr={x:v,y:v}
