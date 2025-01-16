@@ -732,6 +732,8 @@ class MarkupParser {
 				for( a in m.attributes ) {
 					buf.add(' ');
 					buf.add(a.name);
+					if( a.value.equals(RawValue("true")) )
+						continue;
 					buf.add('=');
 					switch( a.value ) {
 					case RawValue(v): buf.add('"$v"');
