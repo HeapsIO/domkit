@@ -742,7 +742,7 @@ class MarkupParser {
 				}
 			}
 			if( m.condition != null ) {
-				buf.add(' if( ');
+				buf.add(' if');
 				buf.add(codeToString(m.condition.cond));
 			}
 			if( m.children != null && m.children.length > 0 ) {
