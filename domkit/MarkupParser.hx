@@ -711,8 +711,11 @@ class MarkupParser {
 		if( buf == null ) buf = new StringBuf();
 		switch( m.kind ) {
 		case Node(null):
-			for( c in m.children )
+			var first = true;
+			for( c in m.children ) {
+				if( first ) first = false else buf.add('\n\n');
 				markupToStringRec(c,buf,tabs);
+			}
 		case Node(name):
 			buf.add('<');
 			buf.add(name);
