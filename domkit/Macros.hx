@@ -396,7 +396,7 @@ class Macros {
 			if( isRoot ) {
 				var build = exprs.slice(topLevelCount);
 				exprs = exprs.slice(0, topLevelCount);
-				exprs.push(macro if( tmp != null && @:privateAccess tmp.component.createHook != null ) @:privateAccess tmp.component.createHook(this) else $b{build});
+				exprs.push(macro $b{build});
 			}
 
 			if( m.condition != null ) {
