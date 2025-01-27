@@ -38,7 +38,7 @@ enum MarkupKind {
 	Text( text : String );
 	CodeBlock( v : String );
 	Macro( id : String );
-	For( cond : String );
+	For( cond : CodeExpr );
 }
 
 enum AttributeValue {
@@ -188,7 +188,7 @@ class MarkupParser {
 						cond = cond.substr(0,-1);
 					}
 					var obj = {
-						kind : For(cond),
+						kind : For(parseCode(cond,start+3)),
 						pmin : start,
 						pmax : start + text.length,
 						children : [],
@@ -781,7 +781,8 @@ class MarkupParser {
 				buf.add(')');
 			}
 		case For(cond):
-			buf.add('for$cond');
+			buf.add('for');
+			buf.add(codeToString(cond));
 			tabs += "\t";
 			for( c in m.children ) {
 				buf.add("\n"+tabs);

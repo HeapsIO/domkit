@@ -423,7 +423,6 @@ class Macros {
 			remapBuild(expr);
 			return expr;
 		case For(expr):
-			var expr = Context.parseInlineString(expr,makePos(pos, m.pmin, m.pmax));
 			remapBuild(expr);
 			expr = switch( expr.expr ) {
 			case EParenthesis(e): e;
