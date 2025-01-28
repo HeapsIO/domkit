@@ -40,6 +40,7 @@ class Component<BaseT,T> {
 	public var make : Array<Dynamic> -> BaseT -> T;
 	public var parent : Component<BaseT,Dynamic>;
 	var propsHandler : Array<PropertyHandler<T,Dynamic>>;
+	var classValue : Class<Dynamic>;
 
 	public function new(name, make, parent) {
 		this.name = name;

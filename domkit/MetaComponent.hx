@@ -578,6 +578,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var parser : $parserType;
 			function new() {
 				super($v{this.name},@:privateAccess $newExpr,$parentExpr);
+				classValue = ${makeTypeExpr(classType,classType.pos)};
 				$initParser;
 				$b{handlers};
 			}
