@@ -189,11 +189,11 @@ class CssParser {
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 	public var allowSubRules = true;
 	public var allowVariablesDecl = true;
-	public var allowFunctionsDecl = true;
+	public var allowMixins = true;
 	public var expandSubRules = true;
 	public var allowSingleLineComment = true;
 	public var variables : Map<String, CssValue> = [];
-	public var functions : Map<String, CssSheetElement> = [];
+	public var mixins : Map<String, CssSheetElement> = [];
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -360,7 +360,7 @@ class CssParser {
 	}
 
 	function parseStyle( classes, eof ) : CssSheetElement {
-		var rules = [], trans = null, subRules = null;
+		var elt : CssSheetElement = { classes : classes, style : [] };
 		while( true ) {
 			if( isToken(eof) )
 				break;
@@ -369,9 +369,9 @@ class CssParser {
 			case TIdent(n): n;
 			case TAnd, TSuperior, TSharp, TDot, TDblDot if( allowSubRules ):
 				push(tk);
-				if( subRules == null ) subRules = [];
-				for( e in parseSheetElements(true) )
-					subRules.push(e);
+				if( elt.subRules == null ) elt.subRules = [];
+				for( e in parseSheetElements(elt) )
+					elt.subRules.push(e);
 				continue;
 			default:
 				unexpected(tk);
@@ -382,9 +382,9 @@ class CssParser {
 			case tk if( allowSubRules ):
 				push(tk);
 				push(TIdent(name));
-				if( subRules == null ) subRules = [];
-				for( e in parseSheetElements(true) )
-					subRules.push(e);
+				if( elt.subRules == null ) elt.subRules = [];
+				for( e in parseSheetElements(elt) )
+					elt.subRules.push(e);
 				continue;
 			case tk:
 				push(tk);
@@ -394,24 +394,24 @@ class CssParser {
 			var p = Property.get(name, false);
 			if( p == null ) {
 				if( name == "transition" ) {
-					if( trans == null ) trans = [];
+					if( elt.transitions == null ) elt.transitions = [];
 					var values = switch( value ) {
 					case VList(vl): vl;
 					default: [value];
 					}
 					for( value in values ) {
 						var t = parseTransition(value, start, pos);
-						if( t != null ) trans.push(t);
+						if( t != null ) elt.transitions.push(t);
 					}
 				} else
 					warnings.push({ pmin : start, pmax : pos, msg : "Unknown property "+name });
 			} else
-				rules.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos, file: file });
+				elt.style.push({ p : p, value : value, pmin : start, vmin : valueStart, pmax : pos, file: file });
 			if( isToken(eof) )
 				break;
 			expect(TSemicolon);
 		}
-		return { classes : classes, style : rules, transitions : trans, subRules : subRules };
+		return elt;
 	}
 
 	public function parseSheet( css : String, ?file : String ) : CssSheet {
@@ -433,20 +433,64 @@ class CssParser {
 				variables.set(name, value);
 				continue;
 			}
-			for( e in parseSheetElements(false) )
+			for( e in parseSheetElements(null) )
 				rules.push(e);
 		}
 		return rules;
 	}
 
-	function parseSheetElements(hasParent) : Array<CssSheetElement> {
-		var classes = readClasses(hasParent);
-		if( allowFunctionsDecl && classes.length == 1 && classes[0].className != null && isToken(TPOpen) ) {
+	function getFunIdent( c : CssClass ) {
+		if( c.parent != null )
+			return null;
+		if( c.component != null )
+			return null;
+		if( c.extraClasses != null )
+			return null;
+		if( c.pseudoClasses.toInt() != 0 )
+			return null;
+		if( c.id.isDefined() )
+			return null;
+		if( !c.className.isDefined() )
+			return null;
+		if( c.relation != None )
+			return null;
+		return c.className.toString();
+	}
+
+	function parseSheetElements(parent:CssSheetElement) : Array<CssSheetElement> {
+		var pmin = tokenStart;
+		var classes = readClasses(parent != null);
+		if( allowMixins && classes.length == 1 && getFunIdent(classes[0]) != null && isToken(TPOpen) ) {
 			expect(TPClose);
-			expect(TBrOpen);
-			var rules = parseStyle([null], TBrClose);
-			functions.set(classes[0].className.toString(), rules);
-			return [];
+			var name = getFunIdent(classes[0]);
+			switch( readToken() ) {
+			case TBrOpen:
+				var rules = parseStyle([null], TBrClose);
+				mixins.set(name, rules);
+				return [];
+			case TSemicolon:
+				var fun = mixins.get(name);
+				if( fun == null ) {
+					warnings.push({ pmin : pmin, pmax : pmin + name.length, msg : "Unknown mixin "+name });
+				} else {
+					for( r in fun.style )
+						parent.style.push(r);
+					if( fun.transitions != null ) {
+						if( parent.transitions == null ) parent.transitions = [];
+						for( t in fun.transitions )
+							parent.transitions.push(t);
+					}
+					if( fun.subRules != null ) {
+						if( parent.subRules == null ) parent.subRules = [];
+						for( r in fun.subRules )
+							parent.subRules.push(r);
+					}
+				}
+				return [];
+			case t:
+				push(t);
+				expect(TSemicolon);
+			}
 		}
 		expect(TBrOpen);
 		var elt = parseStyle(classes, TBrClose);
@@ -562,7 +606,7 @@ class CssParser {
 				case TBrOpen, TComma, TEof:
 					push(t);
 					break;
-				case TPOpen if( allowFunctionsDecl && !hasParent ):
+				case TPOpen if( allowMixins ):
 					push(t);
 					break;
 				default:
