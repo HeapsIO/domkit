@@ -332,6 +332,67 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				}
 				return p;
 			default:
+				var ab = a.get();
+				if (ab.meta.has(":enum")) {
+					var names = [];
+					for (field in ab.impl.get().statics.get()) {
+						if (field.meta.has(":enum") && field.meta.has(":impl")) {
+							names.push(field.name);
+						}
+					}
+
+					var idents = [for( n in names ) CssParser.haxeToCss(n)];
+					var fallback = [for( n in names ) n.toLowerCase()];
+					var enexpr = makeTypeExpr(ab, pos);
+
+					var nameExprs = [ for (name in names) macro $enexpr.$name ];
+					var fname = "parse" + ab.name;
+
+					var parserField = parserDependencies.get(fname);
+					if (parserField == null) {
+						var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join("|"));
+						parserField = {
+							name: fname,
+							pos: pos,
+							kind: FFun({
+								args: [ { name: "css", type: (macro : CssValue) } ],
+								ret: t.toComplexType(),
+								expr: macro {
+									#if (haxe_ver >= 4.3) static #end var all = $a{nameExprs};
+									#if (haxe_ver >= 4.3) static #end var idents = $v{idents};
+									#if (haxe_ver >= 4.3) static #end var fallback = $v{fallback};
+									inline function getIndex(str: String) {
+										var idx = idents.indexOf(str);
+										if( idx < 0 )
+											idx = fallback.indexOf(str);
+										return idx;
+									}
+									switch( css ) {
+										case VIdent(i):
+											var idx = getIndex(i);
+											if( idx < 0 )
+												return $invalidEnum;
+											return all[idx];
+										default:
+											return parser.invalidProp();
+									}
+								},
+							}),
+						};
+						parserDependencies.set(fname, parserField);
+					}
+					return {
+						expr: (macro $i{fname}),
+						value : function(css:CssValue) {
+							return switch( css ) {
+								case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
+								case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
+								default: parser.invalidProp();
+							}
+						},
+						def : null,
+					};
+				}
 			}
 		case TInst(c,_):
 			switch( c.toString() ) {
