@@ -29,7 +29,7 @@ class Macros {
 		return null;
 	}
 
-	@:persistent public static dynamic function onSourceLoad( path : String, pos : haxe.macro.Expr.Position, fields : Array<Field> ) : { dml : domkit.MarkupParser.Markup, pos : haxe.macro.Expr.Position } {
+	@:persistent public static dynamic function onSourceLoad( path : String, pos : haxe.macro.Expr.Position, fields : Array<Field>, params : Array<Expr> ) : { dml : domkit.MarkupParser.Markup, pos : haxe.macro.Expr.Position } {
 		Context.error("@:source found but no source loader defined", pos);
 		return null;
 	}
@@ -643,7 +643,9 @@ class Macros {
 			if( m.params != null )
 				switch( m.params[0].expr ) {
 				case EConst(CString(path)):
-					var doc = onSourceLoad(path,m.params[0].pos,fields);
+					var extraParams = m.params.copy();
+					extraParams.shift();
+					var doc = onSourceLoad(path,m.params[0].pos,fields,extraParams);
 					if( doc == null ) Context.error("Failed to load domkit source", m.params[0].pos);
 					else hasDocument = { f : null, str : null, dml : doc.dml, pos : doc.pos };
 				default:
