@@ -29,6 +29,8 @@ enum abstract MToken(Int) {
 	var ARGS;
 	var MACRO_ID;
 	var IF_COND;
+	var PARENT_NAME;
+	var PARENT_ARGS;
 }
 
 typedef CodeExpr = #if macro haxe.macro.Expr #else String #end;
@@ -46,14 +48,17 @@ enum AttributeValue {
 	Code( v : CodeExpr );
 }
 
+typedef Argument = { value : AttributeValue, pmin : Int, pmax : Int };
+
 typedef Markup = {
 	var kind : MarkupKind;
 	var pmin : Int;
 	var pmax : Int;
-	var ?arguments : Array<{ value : AttributeValue, pmin : Int, pmax : Int }>;
+	var ?arguments : Array<Argument>;
 	var ?attributes : Array<{ name : String, value : AttributeValue, pmin : Int, vmin : Int, pmax : Int }>;
 	var ?children : Array<Markup>;
 	var ?condition : { cond : CodeExpr, pmin : Int, pmax : Int };
+	var ?parent : { name : String, pmin : Int, pmax : Int, arguments : Array<Argument> };
 }
 
 private typedef MarkupLoop = {
@@ -222,11 +227,16 @@ class MarkupParser {
 				return;
 			}
 			start += base.indexOf(arg);
+			var a : Argument;
 			if( r_string.match(arg) ) {
-				obj.arguments.push({ value : RawValue(arg.substr(1,arg.length - 2)), pmin : filePos + start + 1, pmax : filePos + start + arg.length - 1 });
+				a = { value : RawValue(arg.substr(1,arg.length - 2)), pmin : filePos + start + 1, pmax : filePos + start + arg.length - 1 };
 			} else {
-				obj.arguments.push({ value : Code(parseCode(arg,start)), pmin : filePos + start, pmax : filePos + start + arg.length });
+				a = { value : Code(parseCode(arg,start)), pmin : filePos + start, pmax : filePos + start + arg.length };
 			}
+			if( state == ARGS )
+				obj.arguments.push(a);
+			else
+				obj.parent.arguments.push(a);
 			start = p + 1;
 		}
 		while (!StringTools.isEof(c)) {
@@ -408,8 +418,7 @@ class MarkupParser {
 						continue;
 					}
 				case TAG_NAME:
-					if (!isValidChar(c))
-					{
+					if (!isValidChar(c)) {
 						if( p == start )
 							error("Expected node name", p);
 						obj = {
@@ -434,20 +443,49 @@ class MarkupParser {
 						}
 					}
 				case BODY:
-					switch(c)
-					{
-						case '/'.code:
-							state = WAIT_END;
-						case '>'.code:
-							state = CHILDS;
-						default:
-							state = ATTRIB_NAME;
-							start = p;
+					switch( c ) {
+					case ':'.code:
+						var plast = obj.arguments != null && obj.arguments.length > 0 ? obj.arguments[obj.arguments.length - 1].pmax + 1 : obj.pmax;
+						if( parent != null && !parent.kind.equals(Node(null)) )
+							error("Invalid parent declaration", p);
+						if( p != plast - filePos )
+							error("Invalid character :", p);
+						state = PARENT_NAME;
+						start = p + 1;
+					case '/'.code:
+						state = WAIT_END;
+					case '>'.code:
+						state = CHILDS;
+					default:
+						state = ATTRIB_NAME;
+						start = p;
+						continue;
+					}
+				case PARENT_NAME:
+					if (!isValidChar(c)) {
+						var tmp;
+						if( start == p )
+							error("Expected node name", p);
+						var parentName = str.substr(start,p-start);
+						obj.parent = {
+							name : parentName,
+							pmin : start,
+							pmax : p,
+							arguments : [],
+						};
+						if( c == '('.code ) {
+							state = PARENT_ARGS;
+							next = BODY;
+							start = p + 1;
+							nparents = 1;
+							nbrackets = nbraces = 0;
+						} else {
+							state = BODY;
 							continue;
+						}
 					}
 				case ATTRIB_NAME:
-					if (!isValidChar(c))
-					{
+					if (!isValidChar(c)) {
 						var tmp;
 						if( start == p )
 							error("Expected attribute name", p);
@@ -538,7 +576,7 @@ class MarkupParser {
 							next = BODY;
 						}
 					}
-				case ARGS:
+				case ARGS, PARENT_ARGS:
 					switch( c ) {
 					case ")".code:
 						nparents--;
@@ -690,7 +728,7 @@ class MarkupParser {
 	}
 
 	static inline function isValidChar(c) {
-		return (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == ':'.code || c == '.'.code || c == '_'.code || c == '-'.code;
+		return (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '.'.code || c == '_'.code || c == '-'.code;
 	}
 
 	static function codeToString( v : CodeExpr ) : String {
