@@ -79,7 +79,7 @@ class CssClass {
 			if( parent != null ) throw "assert";
 			c.parent = cl.parent;
 			c.component = component ?? cl.component;
-			c.id = id ?? cl.id;
+			c.id = id.isDefined() ? id : cl.id;
 			c.className = className ?? cl.className;
 			if( className != null && cl.className != null ) {
 				c.extraClasses = [cl.className];
@@ -107,6 +107,40 @@ class CssClass {
 		}
 		return c;
 	}
+
+	public function toString() {
+		var str = [];
+		if( parent != null )
+			str.push(parent.toString());
+		switch( relation ) {
+		case None: if( str.length > 0 ) str.push(" ");
+		case ImmediateChildren: str.push(">");
+		case SubRule: str.push("&");
+		}
+		if( component != null )
+			str.push(component.name);
+		if( className != null )
+			str.push("."+className.toString());
+		if( extraClasses != null )
+			for( e in extraClasses )
+				str.push("."+e.toString());
+		if( id.isDefined() )
+			str.push("#"+id.toString());
+		if( pseudoClasses != None ) {
+			var ps = pseudoClasses;
+			if( ps.has(Hover) ) str.push(":hover");
+			if( ps.has(FirstChild) ) str.push(":first-child");
+			if( ps.has(LastChild) ) str.push(":last-child");
+			if( ps.has(Odd) ) str.push(":odd");
+			if( ps.has(Even) ) str.push(":even");
+			if( ps.has(Active) ) str.push(":active");
+			if( ps.has(Disabled) ) str.push(":disabled");
+			if( ps.has(Focus) ) str.push(":focus");
+			if( ps.has(NotImportant) ) str.push(":not-important");
+		}
+		return str.join("");
+	}
+
 }
 
 typedef Transition = {
@@ -376,20 +410,35 @@ class CssParser {
 			default:
 				unexpected(tk);
 			}
-			var start = tokenStart;
-			switch( readToken() ) {
-			case TDblDot:
-			case tk if( allowSubRules ):
-				push(tk);
-				push(TIdent(name));
-				if( elt.subRules == null ) elt.subRules = [];
-				for( e in parseSheetElements(elt) )
-					elt.subRules.push(e);
-				continue;
-			case tk:
-				push(tk);
-				expect(TDblDot);
+			var hasSpaces = false;
+			var wasSubRule = false;
+			var start = 0;
+			while( true ) {
+				spacesTokens = true;
+				start = tokenStart;
+				var tk = readToken();
+				spacesTokens = false;
+				switch( tk ) {
+				case TDblDot:
+					break;
+				case TSpaces:
+					hasSpaces = true;
+				case tk if( allowSubRules ):
+					push(tk);
+					if( hasSpaces ) push(TSpaces);
+					push(TIdent(name));
+					if( elt.subRules == null ) elt.subRules = [];
+					for( e in parseSheetElements(elt) )
+						elt.subRules.push(e);
+					wasSubRule = true;
+					break;
+				case tk:
+					push(tk);
+					expect(TDblDot);
+				}
 			}
+			if( wasSubRule )
+				continue;
 			var value = readValue();
 			var p = Property.get(name, false);
 			if( p == null ) {
