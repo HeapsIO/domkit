@@ -757,17 +757,25 @@ class MarkupParser {
 		case Node(name):
 			buf.add('<');
 			buf.add(name);
-			if( m.arguments != null && m.arguments.length > 0 ) {
-				buf.add('(');
-				var first = true;
-				for( a in m.arguments ) {
-					if( first ) first = false else buf.add(',');
-					switch( a.value ) {
-					case RawValue(v): buf.add('"$v"');
-					case Code(v): buf.add(codeToString(v));
+			inline function addArgs( args : Array<Argument> ) {
+				if( args != null && args.length > 0 ) {
+					buf.add('(');
+					var first = true;
+					for( a in args ) {
+						if( first ) first = false else buf.add(',');
+						switch( a.value ) {
+						case RawValue(v): buf.add('"$v"');
+						case Code(v): buf.add(codeToString(v));
+						}
 					}
+					buf.add(')');
 				}
-				buf.add(')');
+			}
+			addArgs(m.arguments);
+			if( m.parent != null ) {
+				buf.add(':');
+				buf.add(m.parent.name);
+				addArgs(m.parent.arguments);
 			}
 			if( m.attributes != null ) {
 				for( a in m.attributes ) {
