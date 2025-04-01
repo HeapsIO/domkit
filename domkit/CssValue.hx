@@ -295,6 +295,29 @@ class ValueParser {
 		}
 	}
 
+	public function parseGenBox<T>( v : CssValue, f : CssValue -> T ) {
+		switch( v ) {
+		case VGroup([v,h]):
+			var v = f(v);
+			var h = f(h);
+			return { top : v, right : h, bottom : v, left : h };
+		case VGroup([v,h,k]):
+			var v = f(v);
+			var h = f(h);
+			var k = f(k);
+			return { top : v, right : h, bottom : k, left : h };
+		case VGroup([v,h,k,l]):
+			var v = f(v);
+			var h = f(h);
+			var k = f(k);
+			var l = f(l);
+			return { top : v, right : h, bottom : k, left : l };
+		default:
+			var v = f(v);
+			return { top : v, right : v, bottom : v, left : v };
+		}
+	}
+
 	public function makeEnumParser<T:EnumValue>( e : Enum<T> ) : CssValue -> T {
 		var h = new Map();
 		var all = [];
