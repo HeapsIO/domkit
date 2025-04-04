@@ -576,7 +576,7 @@ class CssStyle {
 			force = true;
 		}
 		var obj : Model<Dynamic> = e.obj;
-		for( c in obj.getChildren() ) {
+		for( c in @:privateAccess obj.getChildren() ) {
 			var c : Model<Dynamic> = c;
 			if( c.dom == null )
 				continue;
@@ -638,14 +638,15 @@ class CssStyle {
 				var parent = e.parent;
 				if( parent == null )
 					return false;
-				var children = parent.obj.getChildren();
-				if( c.pseudoClasses.has(FirstChild) && children[0] != e.obj )
+				var children = @:privateAccess parent.obj.getChildren();
+				var index = @:privateAccess parent.obj.getChildRefPosition(true);
+				if( c.pseudoClasses.has(FirstChild) && children[index] != e.obj )
 					return false;
-				if( c.pseudoClasses.has(LastChild) && children[children.length - 1] != e.obj )
+				if( c.pseudoClasses.has(LastChild) && children[@:privateAccess parent.obj.getChildRefPosition(false)] != e.obj )
 					return false;
-				if( c.pseudoClasses.has(Odd) && children.indexOf(e.obj) & 1 == 0 )
+				if( c.pseudoClasses.has(Odd) && (children.indexOf(e.obj) - index) & 1 == 0 )
 					return false;
-				if( c.pseudoClasses.has(Even) && children.indexOf(e.obj) & 1 != 0 )
+				if( c.pseudoClasses.has(Even) && (children.indexOf(e.obj) - index) & 1 != 0 )
 					return false;
 			}
 		}

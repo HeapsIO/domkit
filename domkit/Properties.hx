@@ -76,7 +76,7 @@ class Properties<T:Model<T>> {
 			dirty = p.dirty;
 			needRefresh();
 		}
-		for( c in obj.getChildren() )
+		for( c in @:privateAccess obj.getChildren() )
 			if( c.dom != null )
 				c.dom.onParentChanged();
 	}
