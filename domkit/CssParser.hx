@@ -1031,17 +1031,33 @@ class CssParser {
 			case "'".code, '"'.code:
 				var pos = pos;
 				var k;
+				var buf : StringBuf = null;
 				while( (k = next()) != c ) {
 					if( StringTools.isEof(k) ) {
 						this.pos = pos;
 						error("Unclosed string constant");
 					}
 					if( k == "\\".code ) {
-						throw "todo";
+						if( buf == null ) {
+							buf = new StringBuf();
+							buf.add(css.substr(pos, this.pos - pos - 1));
+						}
+						k = next();
+						if( StringTools.isEof(k) ) {
+							this.pos = pos;
+							error("Unclosed string constant");
+						}
+						switch( k ) {
+						case 'n'.code: buf.addChar('\n'.code);
+						case 't'.code: buf.addChar('\t'.code);
+						case 'r'.code: buf.addChar('\r'.code);
+						default: buf.addChar(k);
+						}
 						continue;
 					}
-				}
-				return TString(css.substr(pos, this.pos - pos - 1));
+					if( buf != null ) buf.addChar(k);
+ 				}
+				return TString(buf != null ? buf.toString() : css.substr(pos, this.pos - pos - 1));
 			default:
 			}
 			pos--;
