@@ -66,11 +66,13 @@ class Properties<T:Model<T>> {
 		return classes.indexOf(new Identifier(name)) >= 0;
 	}
 
-	public function onParentChanged() {
+	public function onParentChanged( ?prev : Properties<T> ) {
 		var p = parent;
-		if( p == null )
+		if( p == null ) {
 			dirty = new DirtyRef();
-		else {
+			if( prev != null )
+				prev.needRefresh(); // can change :first-child etc.
+		} else {
 			dirty = p.dirty;
 			needRefresh();
 		}
