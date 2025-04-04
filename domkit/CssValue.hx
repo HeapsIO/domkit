@@ -169,7 +169,7 @@ class ValueParser {
 				| (Std.int(clamp(g,0,255)) << 8)
 				| Std.int(clamp(b,0,255))
 				| (Std.int(clamp(a,0,1)*255) << 24);
-		case VCall("rgb", [r,g,b,a]):
+		case VCall("rgb", [r,g,b]):
 			var r = parseInt(r);
 			var g = parseInt(g);
 			var b = parseInt(b);
