@@ -616,14 +616,15 @@ class CssParser {
 			var t = readToken();
 			if( hasParent && first ) {
 				first = false;
-				switch( t ) {
-				case TAnd:
+				if( t == TAnd ) {
 					c.relation = SubRule;
 					t = readToken();
-				case TSuperior:
+				}
+				if( t == TSuperior ) {
+					// &> and > are same thing
 					c.relation = ImmediateChildren;
 					t = readToken();
-				default:
+					if( t == TSpaces ) t = readToken();
 				}
 			}
 			if( last == null )
