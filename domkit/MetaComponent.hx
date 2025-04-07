@@ -214,6 +214,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				case CInt(_): t = macro : Int;
 				case CFloat(_): t = macro : Float;
 				case CString(_): t = macro : String;
+				case CIdent("true" | "false"): t = macro : Bool;
 				default:
 				}
 			default:
