@@ -567,11 +567,15 @@ class CssStyle {
 			}
 
 			// reapply style properties
-			if( changed )
+			if( changed ) {
 				for( p in e.style ) {
 					var h = e.component.getHandler(p.p);
 					if( h != null ) h.apply(e.obj, p.value);
 				}
+				// if our style change triggered a class change
+				// we will rebuild it but let's not trigger transition
+				if( firstInit && e.needStyleRefresh ) e.firstInit = true;
+			}
 			// parent style has changed, we need to sync children
 			force = true;
 		}
