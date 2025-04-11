@@ -71,6 +71,13 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			baseClass.meta.add(":uiComp",[{ expr : EConst(CString(name)), pos : c.pos }], c.pos);
 		baseType = baseT.toComplexType();
 
+		// if we have a component with type parameters, let's replace them by Dynamic
+		switch( baseType ) {
+		case TPath(tp) if( (tp.sub ?? tp.name) == baseClass.name && tp.params != null && tp.params.length > 0 ):
+			tp.params = [for( _ in tp.params ) TPType(TPath({ pack : [], name : "Dynamic"}))];
+		default:
+		}
+
 		var fconstr = null;
 		for( f in fields ) {
 			if( f.meta != null )
