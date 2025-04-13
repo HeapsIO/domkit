@@ -411,7 +411,7 @@ class CssParser {
 				unexpected(tk);
 			}
 			var hasSpaces = false;
-			var wasSubRule = false;
+			var isSubRule = false;
 			var start = 0;
 			while( true ) {
 				spacesTokens = true;
@@ -420,25 +420,45 @@ class CssParser {
 				spacesTokens = false;
 				switch( tk ) {
 				case TDblDot:
+					// subrule in the form `name:pseudo {`
+					if( allowSubRules && !hasSpaces ) {
+						spacesTokens = true;
+						var tk2 = readToken();
+						spacesTokens = false;
+						switch( tk2 ) {
+						case TIdent(pseudo):
+							var tk3 = readToken();
+							push(tk3);
+							push(tk2);
+							if( tk3 != TBrOpen )
+								break;
+							push(tk);
+							isSubRule = true;
+						default:
+							push(tk2);
+							break;
+						}
+					}
 					break;
 				case TSpaces:
 					hasSpaces = true;
 				case tk if( allowSubRules ):
 					push(tk);
-					if( hasSpaces ) push(TSpaces);
-					push(TIdent(name));
-					if( elt.subRules == null ) elt.subRules = [];
-					for( e in parseSheetElements(elt) )
-						elt.subRules.push(e);
-					wasSubRule = true;
+					isSubRule = true;
 					break;
 				case tk:
 					push(tk);
 					expect(TDblDot);
 				}
 			}
-			if( wasSubRule )
+			if( isSubRule ) {
+				if( hasSpaces ) push(TSpaces);
+				push(TIdent(name));
+				if( elt.subRules == null ) elt.subRules = [];
+				for( e in parseSheetElements(elt) )
+					elt.subRules.push(e);
 				continue;
+			}
 			var value = readValue();
 			var p = Property.get(name, false);
 			if( p == null ) {
