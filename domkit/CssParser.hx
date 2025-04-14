@@ -435,7 +435,7 @@ class CssParser {
 							push(tk);
 							isSubRule = true;
 						default:
-							push(tk2);
+							if( tk2 != TSpaces ) push(tk2);
 							break;
 						}
 					}
