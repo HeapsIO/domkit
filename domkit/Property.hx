@@ -5,6 +5,9 @@ class InvalidProperty {
 	public function new(?msg) {
 		this.message = msg;
 	}
+	public function toString() {
+		return "InvalidProperty("+message+")";
+	}
 }
 
 class Property {
