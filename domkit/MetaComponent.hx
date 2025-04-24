@@ -368,9 +368,12 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 								expr: macro {
 									#if (haxe_ver >= 4.3) static #end var all = $a{nameExprs};
 									#if (haxe_ver >= 4.3) static #end var idents = $v{idents};
+									#if (haxe_ver >= 4.3) static #end var names = $v{names};
 									#if (haxe_ver >= 4.3) static #end var fallback = $v{fallback};
 									inline function getIndex(str: String) {
 										var idx = idents.indexOf(str);
+										if( idx < 0 )
+											idx = names.indexOf(str);
 										if( idx < 0 )
 											idx = fallback.indexOf(str);
 										return idx;
