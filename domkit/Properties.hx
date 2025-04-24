@@ -53,6 +53,11 @@ class Properties<T:Model<T>> {
 	inline function needRefresh() {
 		needStyleRefresh = true;
 		dirty.mark();
+		checkLoop();
+	}
+
+	static function checkLoop() {
+		if( APPLY_LOOPS > 100 ) throw "Infinite loop in apply style";
 	}
 
 	static var EMPTY_CLASSES = [];
@@ -98,17 +103,20 @@ class Properties<T:Model<T>> {
 		}
 	}
 
-	static var COUNT = 0;
-	static var T0 = haxe.Timer.stamp();
+	static var APPLY_LOOPS = 0;
 
 	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
 		if( partialRefresh && !dirty.dirty ) return;
+		var prev = APPLY_LOOPS;
+		APPLY_LOOPS = 0;
 		do {
 			// if we did apply the style to a children element manually, we should not mark things
 			// as done as some parents styles might have not yet been updated
 			if( parent == null ) dirty.dirty = false;
 			style.applyStyle(this, !partialRefresh);
+			APPLY_LOOPS++;
 		} while( parent == null && dirty.dirty );
+		APPLY_LOOPS = prev;
 	}
 
 	public function removeClass( c : String ) {
