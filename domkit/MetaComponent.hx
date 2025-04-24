@@ -379,7 +379,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 										return idx;
 									}
 									switch( css ) {
-										case VIdent(i), VString(i):
+										case VIdent(i):
 											var idx = getIndex(i);
 											if( idx < 0 )
 												return $invalidEnum;
