@@ -92,7 +92,7 @@ class CssClass {
 						c.extraClasses.push(cl);
 				}
 			} else {
-				c.extraClasses = cl.extraClasses;
+				c.extraClasses = extraClasses ?? cl.extraClasses;
 			}
 			c.pseudoClasses = pseudoClasses | cl.pseudoClasses;
 			c.relation = cl.relation;
