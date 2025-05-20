@@ -74,9 +74,20 @@ class Component<BaseT,T> {
 	}
 
 	public static function get( name : String, opt = false ) {
+		name = resolveRemaps(name);
 		var c = COMPONENTS.get(name);
 		if( c == null && !opt ) throw "Unknown component "+name;
 		return c;
+	}
+
+	#if !macro
+	static var RUNTIME_REMAP = domkit.Macros.generateRemapMap();
+	#end
+	public static function resolveRemaps( name : String ) : String {
+		var newName = #if !macro RUNTIME_REMAP #else @:privateAccess Macros.COMPONENTS_REMAP_REV #end.get(name);
+		if( newName != null )
+			return newName;
+		return name;
 	}
 
 	public static macro function build( expr, ?parent ) {

@@ -17,6 +17,11 @@ typedef ComponentData = {
 #end
 
 class Macros {
+
+	public static macro function generateRemapMap() {
+		return macro $v{COMPONENTS_REMAP_REV};
+	}
+
 	#if macro
 
 	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
