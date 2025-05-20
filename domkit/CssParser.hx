@@ -619,7 +619,7 @@ class CssParser {
 
 	function resolveComponent( i : String, p : Int ) {
 		#if macro
-		return @:privateAccess Macros.loadComponent(i,p,this.pos);
+		return @:privateAccess Macros.loadComponent(i,p,this.pos,true);
 		#else
 		return Component.get(i,true);
 		#end

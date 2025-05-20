@@ -6,6 +6,7 @@ import domkit.Error;
 using haxe.macro.Tools;
 
 typedef ComponentData = {
+	var root : MetaComponent;
 	var declaredIds : Map<String,Bool>;
 	var fields : Array<haxe.macro.Expr.Field>;
 	var inits : Array<Expr>;
@@ -19,8 +20,8 @@ class Macros {
 	#if macro
 
 	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
-	@:persistent static var COMPONENTS_REMAP = new Map<String, String>();
-	@:persistent static var componentsSearchPath : Array<String> = ["h2d.domkit.BaseComponents.$Comp"];
+	@:persistent static var COMPONENTS_REMAP_REV = new Map<String, String>();
+	@:persistent static var componentsSearchPath : Array<String> = ["$","h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
 	@:persistent static var preload : Array<String> = [];
 	@:persistent public static var defaultParserPath : String = null;
@@ -32,6 +33,10 @@ class Macros {
 	@:persistent public static dynamic function onSourceLoad( path : String, pos : haxe.macro.Expr.Position, fields : Array<Field>, params : Array<Expr> ) : { dml : domkit.MarkupParser.Markup, pos : haxe.macro.Expr.Position } {
 		Context.error("@:source found but no source loader defined", pos);
 		return null;
+	}
+
+	public static function registerComponentRemap( oldName : String, newName : String ) {
+		COMPONENTS_REMAP_REV.set(newName, oldName);
 	}
 
 	public static function registerComponentsPath( path : String ) {
@@ -71,31 +76,44 @@ class Macros {
 		}
 	}
 
-	static function loadComponent( name : String, pmin : Int, pmax : Int ) {
+	static function loadComponent( name : String, pmin : Int, pmax : Int, alreadyResolved = false ) {
+
+		var oldName = COMPONENTS_REMAP_REV.get(name);
+		if( oldName != null && !alreadyResolved ) name = oldName;
+
+
 		var c = COMPONENTS.get(name);
-		if( c != null ) {
-			// Make sure the built component is still available
-			if (c.isRuntimeComponentAlive()) return c;
-			// ... or forget about it
-			else COMPONENTS.remove(name);
+		if( c != null && !c.isRuntimeComponentAlive() ) {
+			COMPONENTS.remove(name);
+			c = null;
 		}
+
+		if( c != null && (alreadyResolved || c.isGlobal) )
+			return c;
 
 		var lastError = null;
 		var uname = MetaComponent.componentNameToClass(name);
 		for( p in componentsSearchPath ) {
 			var path = p.split("$").join(uname);
 			var t = try Context.getType(path) catch( e : Dynamic ) continue;
-			switch( t.follow() ) {
-			case TInst(c,_): c.get(); // force build
+			var typePath = switch( t.follow() ) {
+			case TInst(c,_):
+				var c = c.get(); // force build
+				MetaComponent.makeTypePath(c).join(".");
 			default:
+				continue;
 			}
 			var c = COMPONENTS.get(name);
 			if( c == null ) {
 				lastError = t;
 				continue;
 			}
-			return c;
+			if( c.isGlobal || alreadyResolved )
+				return c;
+			if( c.typePath == typePath )
+				return c;
 		}
+
 		if( lastError != null )
 			error(lastError.toString()+" does not define component "+name, pmin, pmax);
 		return error("Could not load component '"+name+"'", pmin, pmax);
@@ -165,7 +183,7 @@ class Macros {
 	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false) : Expr {
 		switch (m.kind) {
 		case Node(name):
-			var comp = loadComponent(name, m.pmin, m.pmin+name.length);
+			var comp = loadComponent(name, m.pmin, m.pmin+name.length, name == data.root.name);
 			var args = comp.getConstructorArgs();
 			var eargs = [];
 			if( m.arguments == null ) m.arguments = [];
@@ -180,7 +198,7 @@ class Macros {
 				if( args == null )
 					error('Component $name is a @:uiRootComponent and is not constructible', m.pmin, m.pmax);
 				if( m.arguments.length > args.length )
-					error("Component requires "+args.length+" arguments ("+[for( a in args ) a.name].join(", ")+")", m.pmin, m.pmin + name.length);
+					error('Component $name requires '+args.length+" arguments ("+[for( a in args ) a.name].join(", ")+")", m.pmin, m.pmin + name.length);
 				for( i in 0...args.length ) {
 					var a = args[i];
 					var cur = m.arguments[i];
@@ -470,7 +488,7 @@ class Macros {
 		return false;
 	}
 
-	static function buildDocument( cl : haxe.macro.Type.ClassType, doc : { ?str : String, ?dml : MarkupParser.Markup, ?pos : Position }, fields : Array<Field>, rootName : String ) {
+	static function buildDocument( cl : haxe.macro.Type.ClassType, doc : { ?str : String, ?dml : MarkupParser.Markup, ?pos : Position }, fields : Array<Field>, rootComp : MetaComponent ) {
 		var pos = doc.pos;
 		var currentPos = pos;
 		if( pos == null ) {
@@ -486,14 +504,14 @@ class Macros {
 		}
 		root = root.children[0];
 
-		if( rootName != null )
+		if( rootComp != null )
 			switch( root.kind ) {
-			case Node(n): if( n != rootName ) Context.error("Root element should be "+rootName, pos);
+			case Node(n): if( n != rootComp.name ) /*Context.error*/ throw('Root element `$n` should be '+rootComp.name/*, pos*/);
 			default: throw "assert";
 			}
 
 		var inits = [];
-		var initExpr = buildComponentsInit(root, { fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
+		var initExpr = buildComponentsInit(root, { root : rootComp, fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
@@ -660,13 +678,20 @@ class Macros {
 				if( componentsType == null ) componentsType = m.baseType;
 				if (!COMPONENTS.exists(m.name) || !m.isRuntimeComponentAlive()) {
 					Context.defineType(m.buildRuntimeComponent(componentsType,fields));
+					var cl = MetaComponent.componentNameToClass(m.name);
+					for( path in componentsSearchPath ) {
+						if( path.split("$").join(cl) == m.typePath ) {
+							m.isGlobal = true;
+							break;
+						}
+					}
 					COMPONENTS.set(m.name, m);
 				}
 				var t = m.getRuntimeComponentType();
 				fields.push((macro class {
 					static var ref : $t = null;
 				}).fields[0]);
-				foundComp = m.name;
+				foundComp = m;
 			} catch( e : MetaComponent.MetaError ) {
 				Context.error(e.message, e.position);
 			}
@@ -681,7 +706,7 @@ class Macros {
 			}
 			fields.remove(hasDocument.f);
 		} else if( isComp && !cl.meta.has(":domkitDecl") ) {
-			buildDocument(cl, { str : '<$foundComp></$foundComp>' }, fields, foundComp);
+			buildDocument(cl, { str : '<${foundComp.name}></${foundComp.name}>' }, fields, foundComp);
 		}
 		return fields;
 	}

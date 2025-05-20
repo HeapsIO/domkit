@@ -93,7 +93,7 @@ class Component<BaseT,T> {
 				default: haxe.macro.Context.error("Should be a markup node", expr.pos);
 				}
 
-				var inf = { fields : [], declaredIds : new Map(), inits : [], hasContent : false, useThis: false};
+				var inf = { root : comp, fields : [], declaredIds : new Map(), inits : [], hasContent : false, useThis: false};
 				var initExpr = @:privateAccess Macros.buildComponentsInit(root, inf, expr.pos, false);
 				switch( initExpr.expr ) {
 				case EBlock(el):

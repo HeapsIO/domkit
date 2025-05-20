@@ -24,6 +24,8 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	public var baseType : ComplexType;
 	public var parserType : ComplexType;
 	public var setExprs : Map<String, Expr> = new Map();
+	public var typePath : String;
+	public var isGlobal : Bool;
 	var parser : CssValue.ValueParser;
 	var classType : ClassType;
 	var baseClass : ClassType;
@@ -36,6 +38,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		case TInst(c, _): c.get();
 		default: error("Invalid type",haxe.macro.Context.currentPos());
 		}
+		typePath = makeTypePath(classType).join(".");
 
 		var c = classType;
 		var name = getCompName(c);
@@ -48,7 +51,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var csup = ccur.superClass.t.get();
 			var cname = getCompName(csup, true);
 			if( cname != null ) {
-				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0) catch( e : domkit.Error ) null catch( e : Error ) null;
+				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0,true) catch( e : domkit.Error ) null catch( e : Error ) null;
 				if( metaParent == null ) error("Missing super component registration "+cname, c.pos);
 				break;
 			}
@@ -306,7 +309,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		return uname;
 	}
 
-	function makeTypePath( t : BaseType ) {
+	public static function makeTypePath( t : BaseType ) {
 		var path = t.module.split(".");
 		if( t.name != path[path.length-1] ) path.push(t.name);
 		return path;
@@ -562,9 +565,6 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				case EConst(CString(name)): name;
 				default: error("Invalid :uiComp", name.pos);
 			}
-		}
-		@:privateAccess if (ret != null && Macros.COMPONENTS_REMAP.exists(ret)) {
-			ret = Macros.COMPONENTS_REMAP.get(ret);
 		}
 		return ret;
 	}
