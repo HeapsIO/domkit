@@ -81,7 +81,7 @@ class Component<BaseT,T> {
 	}
 
 	#if !macro
-	static var RUNTIME_REMAP = domkit.Macros.generateRemapMap();
+	static var RUNTIME_REMAP : Map<String,String> = domkit.Macros.generateRemapMap();
 	#end
 	public static function resolveRemaps( name : String ) : String {
 		var newName = #if !macro RUNTIME_REMAP #else @:privateAccess Macros.COMPONENTS_REMAP_REV #end.get(name);
