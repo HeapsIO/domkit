@@ -424,7 +424,7 @@ class Macros {
 
 			if( m.condition != null ) {
 				remapBuild(m.condition.cond);
-				return macro if( ${m.condition.cond} ) $b{exprs};
+				return { expr : EIf(m.condition.cond,macro $b{exprs},null), pos : m.condition.cond.pos };
 			}
 			return macro $b{exprs};
 		case Text(text):
