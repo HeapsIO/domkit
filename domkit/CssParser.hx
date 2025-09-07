@@ -1172,4 +1172,17 @@ class CssParser {
 		return out.toString();
 	}
 
+	public static function cssToHaxe( name : String, isField=false ) {
+		var uname = name;
+		if( !isField )
+			uname = name.charAt(0).toUpperCase()+name.substr(1);
+		var parts = uname.split("-");
+		if( parts.length > 1 ) {
+			for( i in 1...parts.length )
+				parts[i] = parts[i].charAt(0).toUpperCase() + parts[i].substr(1);
+			uname = parts.join("");
+		}
+		return uname;
+	}
+
 }
