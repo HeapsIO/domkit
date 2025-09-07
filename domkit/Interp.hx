@@ -1,6 +1,6 @@
 package domkit;
-#if !hscript
-#error "Domkit Interp requires -lib hscript"
+#if (!hscript || !hscriptPos)
+#error "Domkit Interp requires -lib hscript and -D hscriptPos"
 #else
 
 import domkit.MarkupParser;
@@ -475,8 +475,7 @@ class Interp {
 		case CodeBlock(v):
 			typeCode(v, m);
 		case For(cond):
-			typeCode("for"+cond+"{}",m);
-			var expr : hscript.Expr = (m:Dynamic).__expr;
+			var expr = parser.parseString("for"+cond+"{}", fileName, m.pmin - 3);
 			var prevLocals = @:privateAccess checker.locals.copy();
 			@:privateAccess switch( hscript.Tools.expr(expr) ) {
 			case EFor(v, it, _):
@@ -498,6 +497,7 @@ class Interp {
 			for( c in m.children )
 				checkRec(c);
 			@:privateAccess checker.locals = prevLocals;
+			(m:Dynamic).__expr = expr;
 		case Text(_), Macro(_):
 		}
 	}
