@@ -1,4 +1,8 @@
 package domkit;
+#if !hscript
+#error "Domkit Interp requires -lib hscript"
+#else
+
 import domkit.MarkupParser;
 import hscript.Checker.TType in Type;
 import hscript.Expr in Expr;
@@ -115,7 +119,7 @@ class ScriptChecker extends hscript.Checker {
 
 	public function init( onMarkup ) {
 		this.onMarkup = onMarkup;
-		check({ e : EBlock([]), pmin : 0, pmax : 0, origin : "", line : 0 });
+		check(#if hscriptPos { e : EBlock([]), pmin : 0, pmax : 0, origin : "", line : 0 } #else EBlock([]) #end);
 	}
 
 	public function done() {
@@ -228,13 +232,14 @@ class ScriptChecker extends hscript.Checker {
 						}
 				}
 				if( prop != null ) {
-					var parser = switch( prop.params[0] ) {
+					var p0 = prop.params.length == 0  ? null : hscript.Tools.expr(prop.params[0]);
+					var parser = switch( p0 ) {
 					case null: null;
-					case { e : EIdent(def = "auto"|"none") }:
+					case EIdent(def = "auto"|"none"):
 						switch( makePropParser(f.t) ) {
 						case POpt(p,_), p: POpt(p,def);
 						}
-					case { e : EIdent(name) }: PNamed(name.charAt(0).toUpperCase()+name.substr(1));
+					case EIdent(name): PNamed(name.charAt(0).toUpperCase()+name.substr(1));
 					default: null;
 					};
 					if( parser == null )
@@ -347,7 +352,7 @@ class Interp {
 		this.filePath = filePath;
 		this.parser = new hscript.Parser();
 		checker.init(parseMarkup);
-		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end
+		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end;
 		for( l in Reflect.fields(locals) ) {
 			var lval : Dynamic = Reflect.field(locals,l);
 			@:privateAccess checker.locals.set(l, checker.makeType(lval.type,pos));
@@ -665,3 +670,4 @@ class Interp {
 	}
 
 }
+#end
