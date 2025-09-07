@@ -22,6 +22,14 @@ class Macros {
 		return macro $v{COMPONENTS_REMAP_REV};
 	}
 
+	public macro static function generateLocalsObj() {
+		return { expr : EObjectDecl([for( v in Context.getLocalTVars() ) { field : v.name, expr : macro $i{v.name} }]), pos : Context.currentPos() };
+	}
+
+	public macro static function generateLocalsRestore() {
+		return macro $b{[for( v in Context.getLocalTVars() ) if( v.name != "__locals" ) { var name = v.name; macro $i{name} = __locals.$name; }]};
+	}
+
 	#if macro
 
 	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
@@ -30,6 +38,11 @@ class Macros {
 	@:persistent static var componentsType : ComplexType;
 	@:persistent static var preload : Array<String> = [];
 	@:persistent public static var defaultParserPath : String = null;
+	@:persistent static var ALLOW_INTERP = false;
+
+	public static function allowInterp(b:Bool=true) {
+		ALLOW_INTERP = b;
+	}
 
 	public static dynamic function processMacro( id : String, args : Null<Array<haxe.macro.Expr>>, pos : haxe.macro.Expr.Position ) : MarkupParser.Markup {
 		return null;
@@ -517,6 +530,19 @@ class Macros {
 
 		var inits = [];
 		var initExpr = buildComponentsInit(root, { root : rootComp, fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
+
+		if( ALLOW_INTERP && rootComp != null ) {
+			var filePath = pos.getInfos().file;
+			initExpr = macro {
+				if( domkit.Interp.enable ) {
+					var __locals = domkit.Macros.generateLocalsObj();
+					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
+					domkit.Macros.generateLocalsRestore();
+				} else
+					$initExpr;
+			};
+		}
+
 		if( inits.length > 0 ) {
 			inits.push({ expr : initExpr.expr, pos : initExpr.pos });
 			initExpr.expr = EBlock(inits);
