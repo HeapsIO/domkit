@@ -24,18 +24,16 @@ class Macros {
 
 	#if hscript
 	public macro static function generateLocalsObj() {
-		return { expr : EObjectDecl([for( v in Context.getLocalTVars() ) { field : v.name, expr : macro { type : domkit.Macros.typeEncode($i{v.name}), value : $i{v.name} }}]), pos : Context.currentPos() };
+		var pos = Context.currentPos();
+		return { expr : EObjectDecl([for( v in getLocalVars() ) { field : v.name, expr : macro @:pos(pos) { type : $v{typeEncode(v,pos)}, value : $i{v.name} }}]), pos : pos };
 	}
 
 	public macro static function generateLocalsRestore() {
-		return macro $b{[for( v in Context.getLocalTVars() ) if( v.name != "__locals" ) { var name = v.name; macro $i{name} = __locals.$name.value; }]};
+		var pos = Context.currentPos();
+		// we cannot assign functions here because they might be local functions which are unwritable
+		return macro $b{[for( v in getLocalVars() ) if( v.name != "__locals" && !v.t.match(TFun(_)) ) { var name = v.name; macro @:pos(pos) $i{name} = __locals.$name.value; }]};
 	}
 
-	public macro static function typeEncode( e ) {
-		var t = haxe.macro.TypeTools.toComplexType(Context.typeExpr(e).t);
-		var pos = Context.currentPos();
-		return macro $v{new hscript.Macro(pos).typeEncode(t)};
-	}
 	#end
 
 	#if macro
@@ -47,6 +45,15 @@ class Macros {
 	@:persistent static var preload : Array<String> = [];
 	@:persistent public static var defaultParserPath : String = null;
 	@:persistent static var ALLOW_INTERP = false;
+
+	static function getLocalVars() {
+		return [for( v in Context.getLocalTVars() ) if( v.name.charCodeAt(0) != '`'.code ) v];
+	}
+
+	static function typeEncode( v : haxe.macro.Type.TVar, pos ) {
+		var t = haxe.macro.TypeTools.toComplexType(v.t);
+		return t == null ? null : new hscript.Macro(pos).typeEncode(t);
+	}
 
 	public static function allowInterp(b:Bool=true) {
 		ALLOW_INTERP = b;
@@ -546,9 +553,9 @@ class Macros {
 			var filePath = pos.getInfos().file;
 			initExpr = macro {
 				if( domkit.Interp.enable ) {
-					var __locals = domkit.Macros.generateLocalsObj();
+					var __locals = @:pos(pos) domkit.Macros.generateLocalsObj();
 					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
-					domkit.Macros.generateLocalsRestore();
+					@:pos(pos) domkit.Macros.generateLocalsRestore();
 				} else
 					$initExpr;
 			};

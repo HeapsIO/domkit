@@ -137,7 +137,7 @@ class ScriptChecker extends hscript.Checker {
 	}
 
 	public function haxeToCss( name : String ) {
-		return name.charAt(0).toLowerCase()+~/[A-Z]/g.map(name.substr(1), (r) -> "-"+r.matched(0).toLowerCase());
+		return CssParser.haxeToCss(name);
 	}
 
 	override function checkMeta(m:String, args:Array<Expr>, next:Expr, expr:Expr, withType):Type {
@@ -161,6 +161,16 @@ class ScriptChecker extends hscript.Checker {
 		var e : hscript.Expr.ExprDef = ECall(mk(EIdent("__resolve"),expr),[mk(EConst(CString(path)),expr)]);
 		if( field != null ) e = EField(mk(e,expr),field);
 		return e;
+	}
+
+	public function resolveProperty( comp : TypedComponent, name : String ) {
+		while( comp != null ) {
+			var p = comp.properties.get(name);
+			if( p != null )
+				return p;
+			comp = comp.parent?.comp;
+		}
+		return null;
 	}
 
 	function makeComponent(name) {
@@ -384,7 +394,7 @@ class Interp {
 			if( c != null ) @:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
 		default:
 		}
-		checkRec(dml);
+		checkRec(dml, true);
 		this.parser = null;
 		checker.done();
 	}
@@ -412,29 +422,35 @@ class Interp {
 		return hscript.Checker.typeStr(t);
 	}
 
-	function checkRec( m : Markup ) {
+	function checkRec( m : Markup, isRoot = false ) {
 		switch( m.kind ) {
 		case Node(name):
 			var c = checker.components.get(name);
 			if( c == null )
 				error("Unknown component "+name,m);
-			for( i => a in m.arguments ) {
-				var arg = c.arguments[i];
-				if( arg == null )
-					error("Too many arguments (require "+[for( a in c.arguments ) a.name].join(",")+")",a);
-				var t = switch( a.value ) {
-				case RawValue(_): checker.t_string;
-				case Code(code): typeCode(code, a, arg.t);
-				};
-				unify(t, arg.t, c, arg.name, a);
+			if( isRoot ) {
+				if( m.arguments.length > 0 )
+					error("Invalid arguments", m.arguments[0]);
+			} else {
+				for( i => a in m.arguments ) {
+					var arg = c.arguments[i];
+					if( arg == null )
+						error("Too many arguments (require "+[for( a in c.arguments ) a.name].join(",")+")",a);
+					var t = switch( a.value ) {
+					case RawValue(_): checker.t_string;
+					case Code(code): typeCode(code, a, arg.t);
+					};
+					unify(t, arg.t, c, arg.name, a);
+				}
+				for( i in m.arguments.length...c.arguments.length )
+					if( !c.arguments[i].opt )
+						error("Missing required argument "+c.arguments[i].name,m);
 			}
-			for( i in m.arguments.length...c.arguments.length )
-				if( !c.arguments[i].opt )
-					error("Missing required argument "+c.arguments[i].name,m);
 
 			for( a in m.attributes ) {
-				var pname = checker.haxeToCss(a.name);
-				switch( pname ) {
+				switch( a.name ) {
+				case "public":
+					continue;
 				case "class":
 					switch( a.value ) {
 					case RawValue(_):
@@ -460,8 +476,8 @@ class Interp {
 					}
 				default:
 				}
-				/*
-				var p = resolveProperty(c, pname);
+				var pname = checker.haxeToCss(a.name);
+				var p = checker.resolveProperty(c, pname);
 				if( p == null ) {
 					var t = null, cur = c, chain = [];
 					while( t == null && cur != null ) {
@@ -471,25 +487,24 @@ class Interp {
 						cur = cur.parent?.comp;
 					}
 					if( t == null )
-						domkitError(c.name+" does not have property "+a.name, a.pmin, a.pmax);
+						error(c.name+" does not have property "+a.name, a);
 					for( c in chain )
 						if( c.parent.params.length > 0 )
 							t = checker.apply(t, c.parent.comp.classDef.params, c.parent.params);
 					var pt = switch( a.value ) {
-					case RawValue(_): t_string;
-					case Code(code): typeCode(code, a.vmin, t);
+					case RawValue(_): checker.t_string;
+					case Code(code): typeCode(code, a, t);
 					}
 					unify(pt, t, c, a.name, a);
 					continue;
 				}
 				switch( a.value ) {
 				case RawValue(str):
-					typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
+					//typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
 				case Code(code):
-					var t = typeCode(code, a.vmin, p.type);
+					var t = typeCode(code, a, p.type);
 					unify(t, p.type, c, pname, a);
 				}
-				*/
 			}
 			if( m.condition != null ) {
 				var cond = m.condition;
@@ -597,7 +612,12 @@ class Interp {
 				case "class" if( a.value.match(Code(_)) ): compClass = a;
 				case "public": // nothing
 				default:
-					Reflect.setField(attributes, a.name, evalAttr(a.value,a));
+					switch( a.value ) {
+					case RawValue(v):
+						Reflect.setField(attributes, a.name, v);
+					default:
+						dynAttribs.push({ name : a.name, value : evalAttr(a.value,a) });
+					}
 				}
 			}
 
@@ -625,15 +645,18 @@ class Interp {
 				dom = @:privateAccess Properties.createNew(name,parent.dom,args,attributes);
 				obj = dom.obj;
 			}
+			for( a in dynAttribs )
+				Reflect.setProperty(obj, a.name, a.value);
 			currentObj = obj;
 			if( isContent )
 				@:privateAccess root.dom.contentRoot = obj;
 			if( compId != null ) {
+				var field = CssParser.cssToHaxe(compId,true);
 				if( compIdArray ) {
-					var v : Dynamic = Reflect.getProperty(root, compId);
+					var v : Dynamic = Reflect.getProperty(root, field);
 					if( v is Array ) v.push(obj);
 				} else {
-					try Reflect.setProperty(root, compId, obj) catch( e : Dynamic ) {};
+					try Reflect.setProperty(root, field, obj) catch( e : Dynamic ) {};
 				}
 			}
 			if( compClass != null ) {
