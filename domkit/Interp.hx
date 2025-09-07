@@ -586,8 +586,9 @@ class Interp {
 			if( m.condition != null && !eval(m.condition.cond,m.condition) )
 				return;
 
+			var comp = Component.get(name);
 			var attributes = {};
-			var dynAttribs = [];
+			var dynAttribs = [], dynProps = [];
 			var isContent = false;
 			var compId = null;
 			var compClass = null;
@@ -609,14 +610,24 @@ class Interp {
 					default:
 						evalAttr(a.value, a);
 					}
-				case "class" if( a.value.match(Code(_)) ): compClass = a;
+				case "class":
+					switch( a.value ) {
+					case Code(_): compClass = a;
+					case RawValue(v): Reflect.setField(attributes,"class",v);
+					}
 				case "public": // nothing
 				default:
-					switch( a.value ) {
-					case RawValue(v):
-						Reflect.setField(attributes, a.name, v);
-					default:
+					var p = Property.get(a.name);
+					var h = p == null ? null : comp.getHandler(p);
+					if( h == null )
 						dynAttribs.push({ name : a.name, value : evalAttr(a.value,a) });
+					else {
+						switch( a.value ) {
+						case RawValue(v):
+							Reflect.setField(attributes, a.name, v);
+						default:
+							dynProps.push({ h : h, value : evalAttr(a.value,a) });
+						}
 					}
 				}
 			}
@@ -645,6 +656,8 @@ class Interp {
 				dom = @:privateAccess Properties.createNew(name,parent.dom,args,attributes);
 				obj = dom.obj;
 			}
+			for( p in dynProps )
+				p.h.apply(obj, p.value);
 			for( a in dynAttribs )
 				Reflect.setProperty(obj, a.name, a.value);
 			currentObj = obj;
