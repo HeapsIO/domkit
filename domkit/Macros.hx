@@ -22,13 +22,21 @@ class Macros {
 		return macro $v{COMPONENTS_REMAP_REV};
 	}
 
+	#if hscript
 	public macro static function generateLocalsObj() {
-		return { expr : EObjectDecl([for( v in Context.getLocalTVars() ) { field : v.name, expr : macro $i{v.name} }]), pos : Context.currentPos() };
+		return { expr : EObjectDecl([for( v in Context.getLocalTVars() ) { field : v.name, expr : macro { type : domkit.Macros.typeEncode($i{v.name}), value : $i{v.name} }}]), pos : Context.currentPos() };
 	}
 
 	public macro static function generateLocalsRestore() {
-		return macro $b{[for( v in Context.getLocalTVars() ) if( v.name != "__locals" ) { var name = v.name; macro $i{name} = __locals.$name; }]};
+		return macro $b{[for( v in Context.getLocalTVars() ) if( v.name != "__locals" ) { var name = v.name; macro $i{name} = __locals.$name.value; }]};
 	}
+
+	public macro static function typeEncode( e ) {
+		var t = haxe.macro.TypeTools.toComplexType(Context.typeExpr(e).t);
+		var pos = Context.currentPos();
+		return macro $v{new hscript.Macro(pos).typeEncode(t)};
+	}
+	#end
 
 	#if macro
 
@@ -532,6 +540,9 @@ class Macros {
 		var initExpr = buildComponentsInit(root, { root : rootComp, fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
 
 		if( ALLOW_INTERP && rootComp != null ) {
+			#if !hscript
+			Context.error("Interp generation mode requires -lib hscript", pos);
+			#else
 			var filePath = pos.getInfos().file;
 			initExpr = macro {
 				if( domkit.Interp.enable ) {
@@ -541,6 +552,7 @@ class Macros {
 				} else
 					$initExpr;
 			};
+			#end
 		}
 
 		if( inits.length > 0 ) {
