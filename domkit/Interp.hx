@@ -42,6 +42,16 @@ class ScriptInterp extends hscript.Interp {
 		this.ctx = ctx;
 		this.obj = obj;
 		this.objLocals = locals;
+		variables.set("this", obj);
+		variables.set("__resolve", resolveType);
+	}
+
+	function resolveType( path : String ) : Dynamic {
+		var c = std.Type.resolveClass(path);
+		if( c != null ) return c;
+		var e = std.Type.resolveEnum(path);
+		if( e != null ) return e;
+		throw "Invalid type "+path;
 	}
 
 	override function exprMeta(meta:String, args:Array<hscript.Expr>, e:hscript.Expr):Dynamic {
@@ -140,6 +150,17 @@ class ScriptChecker extends hscript.Checker {
 			}
 		}
 		return super.checkMeta(m, args, next, expr, withType);
+	}
+
+	override function getTypeAccess(t, expr, ?field) {
+		var path = switch( t ) {
+		case TInst(c,_): c.name;
+		case TEnum(e,_): e.name;
+		default: return null;
+		}
+		var e : hscript.Expr.ExprDef = ECall(mk(EIdent("__resolve"),expr),[mk(EConst(CString(path)),expr)]);
+		if( field != null ) e = EField(mk(e,expr),field);
+		return e;
 	}
 
 	function makeComponent(name) {
@@ -357,7 +378,12 @@ class Interp {
 			var lval : Dynamic = Reflect.field(locals,l);
 			@:privateAccess checker.locals.set(l, checker.makeType(lval.type,pos));
 		}
-
+		switch( dml.kind ) {
+		case Node(name):
+			var c = checker.components.get(name);
+			if( c != null ) @:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
+		default:
+		}
 		checkRec(dml);
 		this.parser = null;
 		checker.done();
