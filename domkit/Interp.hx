@@ -26,7 +26,6 @@ private typedef TypedComponent = {
 	var ?classDef : hscript.Checker.CClass;
 	var ?parent : { comp : TypedComponent, params : Array<Type> };
 	var properties : Map<String, TypedProperty>;
-	var vars : Map<String, Type>;
 	var arguments : Array<{ name : String, t : Type, ?opt : Bool }>;
 	var domkitComp : domkit.Component<Dynamic,Dynamic>;
 }
@@ -178,7 +177,6 @@ class ScriptChecker extends hscript.Checker {
 			name : name,
 			properties : [],
 			arguments : [],
-			vars : [],
 			domkitComp : domkit.Component.get(name, true),
 		};
 		if( c.domkitComp == null ) {
@@ -243,10 +241,14 @@ class ScriptChecker extends hscript.Checker {
 			if( name == null )
 				continue;
 			var comp = makeComponent(name);
-			comp.classDef = c;
-			cmap.set(c.name, comp);
-			if( StringTools.startsWith(c.name,"h2d.domkit.") )
-				cmap.set("h2d."+c.name.substr(11,c.name.length-11-4), comp);
+			var cl = c;
+			for( i in c.interfaces )
+				switch( i ) {
+				case TInst({ name : "domkit.ComponentDecl"},[TInst(c,_)]): cl = c;
+				default:
+				}
+			comp.classDef = cl;
+			cmap.set(cl.name, comp);
 			if( c.constructor != null ) {
 				switch( c.constructor.t ) {
 				case TFun(args,_): comp.arguments = args;
@@ -292,8 +294,7 @@ class ScriptChecker extends hscript.Checker {
 						}
 					if( !dup )
 						pl.push(p);
-				} else if( f.canWrite )
-					comp.vars.set(f.name, f.t);
+				}
 			}
 			cdefs.push({ name : name, c : c });
 		}
@@ -479,18 +480,9 @@ class Interp {
 				var pname = checker.haxeToCss(a.name);
 				var p = checker.resolveProperty(c, pname);
 				if( p == null ) {
-					var t = null, cur = c, chain = [];
-					while( t == null && cur != null ) {
-						t = cur.vars.get(a.name);
-						if( t == null )
-							chain.unshift(cur);
-						cur = cur.parent?.comp;
-					}
+					var t = @:privateAccess checker.getField(TInst(c.classDef,c.classDef.params),a.name,{pmin:a.pmin,pmax:a.pmax,origin:fileName,line:1,e:null},true);
 					if( t == null )
 						error(c.name+" does not have property "+a.name, a);
-					for( c in chain )
-						if( c.parent.params.length > 0 )
-							t = checker.apply(t, c.parent.comp.classDef.params, c.parent.params);
 					var pt = switch( a.value ) {
 					case RawValue(_): checker.t_string;
 					case Code(code): typeCode(code, a, t);
