@@ -22,19 +22,25 @@ class Macros {
 		return macro $v{COMPONENTS_REMAP_REV};
 	}
 
-	#if hscript
 	public macro static function generateLocalsObj() {
+		#if hscript
 		var pos = Context.currentPos();
 		return { expr : EObjectDecl([for( v in getLocalVars() ) { field : v.name, expr : macro @:pos(pos) { type : $v{typeEncode(v,pos)}, value : $i{v.name} }}]), pos : pos };
+		#else
+		return macro null;
+		#end
 	}
 
 	public macro static function generateLocalsRestore() {
+		#if hscript
 		var pos = Context.currentPos();
 		// we cannot assign functions here because they might be local functions which are unwritable
 		return macro $b{[for( v in getLocalVars() ) if( v.name != "__locals" && !v.t.match(TFun(_)) ) { var name = v.name; macro @:pos(pos) $i{name} = __locals.$name.value; }]};
+		#else
+		return macro null;
+		#end
 	}
 
-	#end
 
 	#if macro
 
@@ -50,10 +56,12 @@ class Macros {
 		return [for( v in Context.getLocalTVars() ) if( v.name.charCodeAt(0) != '`'.code ) v];
 	}
 
+	#if hscript
 	static function typeEncode( v : haxe.macro.Type.TVar, pos ) {
 		var t = haxe.macro.TypeTools.toComplexType(v.t);
 		return t == null ? null : new hscript.Macro(pos).typeEncode(t);
 	}
+	#end
 
 	public static function allowInterp(b:Bool=true) {
 		ALLOW_INTERP = b;
