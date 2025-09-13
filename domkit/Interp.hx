@@ -362,6 +362,11 @@ class Interp {
 				while( compReg.match(current) ) {
 					var next = compReg.matchedRight();
 					if( StringTools.startsWith(next,"<"+compName) ) {
+						var c = next.charCodeAt(compName.length + 1);
+						if( (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '_'.code ) {
+							current = next;
+							continue;
+						}
 						var startPos = content.length - next.length;
 						var endTag = "</"+compName+">";
 						var endPos = next.indexOf(endTag);
@@ -387,7 +392,7 @@ class Interp {
 		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end;
 		for( l in Reflect.fields(locals) ) {
 			var lval : Dynamic = Reflect.field(locals,l);
-			@:privateAccess checker.locals.set(l, checker.makeType(lval.type,pos));
+			@:privateAccess checker.locals.set(l, lval.type == null ? TUnresolved("Local#"+l) : checker.makeType(lval.type,pos));
 		}
 		switch( dml.kind ) {
 		case Node(name):
@@ -415,8 +420,12 @@ class Interp {
 	}
 
 	function unify( t1 : Type, t2 : Type, comp : TypedComponent, prop : String, pos : { pmin : Int, pmax : Int } ) {
-		if( !checker.tryUnify(t1, t2) )
+		if( !checker.tryUnify(t1, t2) ) {
+			var e : Expr = (pos:Dynamic).__expr;
+			if( e != null && checker.abstractCast(t1,t2,e) )
+				return;
 			throw new domkit.Error(typeStr(t1)+" should be "+typeStr(t2)+" for "+comp.name+"."+prop, pos.pmin, pos.pmax);
+		}
 	}
 
 	function typeStr( t : Type ) {

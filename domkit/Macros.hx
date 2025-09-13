@@ -554,18 +554,19 @@ class Macros {
 		var inits = [];
 		var initExpr = buildComponentsInit(root, { root : rootComp, fields : fields, declaredIds : new Map(), inits : inits, hasContent : false, useThis: true}, currentPos, true);
 
-		if( ALLOW_INTERP && rootComp != null ) {
+		if( ALLOW_INTERP && rootComp != null && doc.pos != null ) {
 			#if !hscript
 			Context.error("Interp generation mode requires -lib hscript", pos);
 			#else
 			var filePath = pos.getInfos().file;
 			initExpr = macro {
-				if( domkit.Interp.enable ) {
+				if( !domkit.Interp.enable )
+					$initExpr;
+				else {
 					var __locals = @:pos(pos) domkit.Macros.generateLocalsObj();
 					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
 					@:pos(pos) domkit.Macros.generateLocalsRestore();
-				} else
-					$initExpr;
+				}
 			};
 			#end
 		}
