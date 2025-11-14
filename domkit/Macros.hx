@@ -332,7 +332,7 @@ class Macros {
 					}
 					if( eset == null ) {
 						if( p.name == "class" )
-							aexprs.push(macro @:pos(e.pos) tmp.setClasses($e));
+							aexprs.push(macro @:pos(e.pos) tmp.appendClasses($e));
 						else
 							error("Unknown property "+comp.name+"."+p.name, attr.vmin, attr.pmax);
 					} else {

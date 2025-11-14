@@ -678,9 +678,9 @@ class Interp {
 				case Code(e):
 					var v : Dynamic = try eval(e,compClass) catch( _ : hscript.Expr.Error ) eval("{"+e+"}",{pmin:compClass.pmin-1,pmax:compClass.pmax-1});
 					if( v is String )
-						dom.setClasses(v);
+						dom.appendClasses(v);
 					else
-						dom.setClasses(null, v);
+						dom.appendClasses(null, v);
 				default:
 					throw "assert";
 				}

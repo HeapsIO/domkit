@@ -222,6 +222,34 @@ class Properties<T:Model<T>> {
 		if( !sameClasses(classes,prevClasses) )
 			needRefresh();
 	}
+	public function appendClasses( ?classStr : String, ?classObj : Dynamic<Bool> ) {
+		var cl;
+		if( classStr != null )
+			cl = classStr.split(" ");
+		else if( classObj != null ) {
+			cl = [];
+			for( f in Reflect.fields(classObj) )
+				if( Reflect.field(classObj,f) )
+					cl.push(f.split("_").join("-"));
+		} else
+			cl = [];
+
+		var prevClasses = classes == null ? null : classes.copy();
+		for( c in cl ) {
+			var c = StringTools.trim(c);
+			if( c.length == 0 ) continue;
+			var c = new Identifier(c);
+			if( classes == null )
+				classes = [c];
+			else if( classes.indexOf(c) < 0 ) {
+				classes.push(c);
+			}
+		}
+		if( classes != null && classes.length == 0 )
+			classes = null;
+		if( !sameClasses(classes,prevClasses) )
+			needRefresh();
+	}
 
 	static inline function sameClasses( cl1 : Array<Identifier>, cl2 : Array<Identifier> ) {
 		if( (cl1 == null ? 0 : cl1.length) != (cl2 == null ? 0 : cl2.length) )
