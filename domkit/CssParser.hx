@@ -395,11 +395,20 @@ class CssParser {
 
 	function parseStyle( classes, eof ) : CssSheetElement {
 		var elt : CssSheetElement = { classes : classes, style : [] };
+		var oldVars = null;
 		while( true ) {
 			if( isToken(eof) )
 				break;
 			var tk = readToken();
 			var name = switch( tk ) {
+			case TAt if( allowVariablesDecl ):
+				var name = readIdent();
+				expect(TDblDot);
+				var value = readValue();
+				expect(TSemicolon);
+				if( oldVars == null ) oldVars = variables.copy();
+				variables.set(name, value);
+				continue;
 			case TIdent(n): n;
 			case TAnd, TSuperior, TSharp, TDot, TDblDot if( allowSubRules ):
 				push(tk);
@@ -480,6 +489,7 @@ class CssParser {
 				break;
 			expect(TSemicolon);
 		}
+		if( oldVars != null ) variables = oldVars;
 		return elt;
 	}
 
