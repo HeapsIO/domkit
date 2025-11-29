@@ -952,6 +952,8 @@ class CssParser {
 				return VUnit(calc(v1,v2),u1);
 			case [VUnit(_), VUnit(_)]:
 				// error
+			case [VString(s1), VString(s2)] if( op == OAdd ):
+				return VString(s1 + s2);
 			default:
 				function getFloat(v:CssValue) {
 					return switch( v ) {
