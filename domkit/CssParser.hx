@@ -21,6 +21,8 @@ enum Token {
 	TSpaces;
 	TSlash;
 	TStar;
+	TPlus;
+	TMinus;
 	TBkOpen;
 	TBkClose;
 	TSuperior;
@@ -213,6 +215,7 @@ class CssParser {
 
 	var css : String;
 	var pos : Int;
+	var calc : Int;
 	var file: String;
 	var tokenStart : Int;
 	var valueStart : Int;
@@ -273,6 +276,8 @@ class CssParser {
 			case TSpaces: "space";
 			case TSlash: "/";
 			case TStar: "*";
+			case TPlus: "+";
+			case TMinus: "-";
 			case TBkOpen: "[";
 			case TBkClose: "]";
 			case TSuperior: ">";
@@ -297,25 +302,50 @@ class CssParser {
 		return false;
 	}
 
-	public function parse( css : String, ?file : String ) {
-		this.css = css;
+	function reset() {
 		pos = 0;
-		this.file = file;
+		calc = 0;
 		tokens = [];
 		warnings = [];
+	}
+
+	public function parse( css : String, ?file : String ) {
+		this.css = css;
+		reset();
+		this.file = file;
 		return parseStyle(null, TEof);
 	}
 
 	public function parseValue( valueStr : String ) {
 		this.css = valueStr;
-		pos = 0;
-		tokens = [];
-		warnings = [];
+		reset();
 		if( isToken(TEof) )
 			return VString("");
 		var v = readValue();
 		expect(TEof);
 		return v;
+	}
+
+	public static function opStr(op:CssOp) {
+		return switch( op ) {
+		case OAdd:"+";
+		case OSub:"-";
+		case OMult:"*";
+		case ODiv:"/";
+		}
+	}
+
+	public static function valueMap( v : CssValue, f : CssValue -> CssValue ) {
+		return switch( v ) {
+		case VIdent(_), VString(_), VUnit(_), VFloat(_), VInt(_), VHex(_), VSlash: v;
+		case VList(vl): VList([for( v in vl ) f(v)]);
+		case VGroup(vl): VGroup([for( v in vl ) f(v)]);
+		case VCall(a,vl): VCall(a,[for( v in vl ) f(v)]);
+		case VLabel(l,v): VLabel(l,f(v));
+		case VArray(v, content): VArray(f(v), content == null ? null : f(content));
+		case VOp(op,v1,v2): VOp(op,f(v1),f(v2));
+		case VParent(v): VParent(f(v));
+		}
 	}
 
 	public static function valueStr(v) {
@@ -334,6 +364,8 @@ class CssParser {
 		case VLabel(label, v): valueStr(v) + " !" + label;
 		case VSlash: "/";
 		case VArray(v, content): valueStr(v) + "[" + (content == null ? "" : valueStr(content)) + "]";
+		case VOp(op,v1,v2): valueStr(v1)+opStr(op)+valueStr(v2);
+		case VParent(v): "("+valueStr(v)+")";
 		}
 	}
 
@@ -495,7 +527,7 @@ class CssParser {
 
 	public function parseSheet( css : String, ?file : String ) : CssSheet {
 		this.css = css;
-		pos = 0;
+		reset();
 		this.file = file;
 		tokens = [];
 		warnings = [];
@@ -600,9 +632,8 @@ class CssParser {
 
 	public function parseClasses( css : String, ?hasParent, ?file : String ) {
 		this.css = css;
-		pos = 0;
 		this.file = file;
-		tokens = [];
+		reset();
 		var c = readClasses(hasParent);
 		expect(TEof);
 		return c;
@@ -788,6 +819,15 @@ class CssParser {
 			if( value == null )
 				error("Unknown variable @"+name);
 			value;
+		case TPOpen:
+			calc++;
+			var v = readValue();
+			expect(TPClose);
+			eval(VParent(v));
+		case TMinus:
+			calc++;
+			var v = readValue();
+			eval(makeOp(OSub,VInt(0),v));
 		default:
 			if( !opt ) unexpected(t);
 			push(t);
@@ -830,6 +870,71 @@ class CssParser {
 		};
 	}
 
+	function eval( v : CssValue ) {
+		calc--;
+		if( calc > 0 ) return v;
+		return evalRec(v);
+	}
+
+	function evalRec( v : CssValue ) {
+		switch(v) {
+		case VOp(op,v1,v2):
+			v1 = evalRec(v1);
+			v2 = evalRec(v2);
+			function calc(a:Float,b:Float) {
+				return switch( op ) {
+				case OAdd: a + b;
+				case OSub: a - b;
+				case OMult: a * b;
+				case ODiv: a / b;
+				}
+			}
+			switch( [v1, v2] ) {
+			case [VInt(i1),VInt(i2)]:
+				return VInt(Std.int(calc(i1,i2)));
+			case [VUnit(v1,u1), VUnit(v2,u2)] if( u1 == u2 ):
+				return VUnit(calc(v1,v2),u1);
+			case [VUnit(_), VUnit(_)]:
+				// error
+			default:
+				function getFloat(v:CssValue) {
+					return switch( v ) {
+					case VInt(i): i;
+					case VFloat(f): f;
+					case VUnit(f,_): f;
+					default: Math.NaN;
+					}
+				}
+				var r = calc(getFloat(v1),getFloat(v2));
+				if( !Math.isNaN(r) ) {
+					return switch( [v1,v2] ) {
+					case [VUnit(_,u), _] | [_,VUnit(_,u)]: VUnit(r,u);
+					default: VFloat(r);
+					}
+				}
+			}
+			error("Cannot calc "+valueStr(v));
+			return null;
+		case VParent(v):
+			return evalRec(v);
+		default:
+			return valueMap(v, evalRec);
+		}
+	}
+
+	function makeOp( op : CssOp, v1 : CssValue, v2 : CssValue ) {
+		switch( v2 ) {
+		case VGroup(vl):
+			var v3 = vl.shift();
+			vl.unshift(makeOp(op,v1,v3));
+			return v2;
+		case VOp(op2,v2,v3) if( op2.getIndex() <= op.getIndex() ):
+			return VOp(op2,makeOp(op,v1,v2),v3);
+		default:
+			return VOp(op, v1, v2);
+		}
+	}
+
 	function readValueNext( v : CssValue ) : CssValue {
 		var t = readToken();
 		return switch( t ) {
@@ -867,6 +972,18 @@ class CssParser {
 			}
 		case TComma:
 			loopComma(v, readValue());
+		case TStar:
+			calc++;
+			return eval(makeOp(OMult, v, readValue()));
+		case TPlus:
+			calc++;
+			return eval(makeOp(OAdd, v, readValue()));
+		case TMinus:
+			calc++;
+			return eval(makeOp(OSub, v, readValue()));
+		case TSlash:
+			calc++;
+			return eval(makeOp(ODiv, v, readValue()));
 		default:
 			push(t);
 			var v2 = readValue(true);
@@ -986,6 +1103,7 @@ class CssParser {
 			}
 			if( isNum(c) || c == '-'.code ) {
 				var i = 0, neg = false;
+				var spos = pos;
 				if( c == '-'.code ) { c = "0".code; neg = true; }
 				do {
 					i = i * 10 + (c - "0".code);
@@ -1002,6 +1120,8 @@ class CssParser {
 					return TFloat(neg? -f : f);
 				}
 				pos--;
+				if( pos == spos && neg )
+					return TMinus;
 				return TInt(neg ? -i : i);
 			}
 			if( isIdentChar(c) ) {
@@ -1029,6 +1149,8 @@ class CssParser {
 			case ">".code: return TSuperior;
 			case "&".code: return TAnd;
 			case "@".code: return TAt;
+			case "-".code: return TMinus;
+			case "+".code: return TPlus;
 			case "/".code:
 				var start = pos - 1;
 				if( (c = next()) != '*'.code ) {

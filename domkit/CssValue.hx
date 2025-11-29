@@ -1,6 +1,13 @@
 package domkit;
 import domkit.Property.InvalidProperty;
 
+enum CssOp {
+	OAdd;
+	OSub;
+	OMult;
+	ODiv;
+}
+
 enum CssValue {
 	VIdent( i : String );
 	VString( s : String );
@@ -14,6 +21,8 @@ enum CssValue {
 	VLabel( v : String, val : CssValue );
 	VSlash;
 	VArray( v : CssValue, ?content : CssValue );
+	VOp( op : CssOp, v1 : CssValue, v2 : CssValue );
+	VParent( v : CssValue );
 }
 
 class HSL {
