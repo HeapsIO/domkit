@@ -153,9 +153,11 @@ typedef Transition = {
 
 typedef CssSheet = Array<CssSheetElement>;
 
+typedef CssRule = { p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int, file: String };
+
 typedef CssSheetElement = {
 	var classes : Array<CssClass>;
-	var style : Array<{ p : Property, value : CssValue, pmin : Int, vmin : Int, pmax : Int, file: String }>;
+	var style : Array<CssRule>;
 	var ?transitions : Array<Transition>;
 	var ?subRules : CssSheet;
  }
@@ -219,7 +221,7 @@ class CssParser {
 	var file: String;
 	var tokenStart : Int;
 	var valueStart : Int;
-
+	var lazyVars : Bool;
 	var spacesTokens : Bool;
 	var tokens : Array<Token>;
 	var warnedComponents : Map<String,Bool>;
@@ -230,7 +232,7 @@ class CssParser {
 	public var expandSubRules = true;
 	public var allowSingleLineComment = true;
 	public var variables : Map<String, CssValue> = [];
-	public var mixins : Map<String, CssSheetElement> = [];
+	public var mixins : Map<String, { rules : CssSheetElement, args : Array<String> }> = [];
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -307,6 +309,8 @@ class CssParser {
 		calc = 0;
 		tokens = [];
 		warnings = [];
+		lazyVars = false;
+		spacesTokens = false;
 	}
 
 	public function parse( css : String, ?file : String ) {
@@ -345,6 +349,7 @@ class CssParser {
 		case VArray(v, content): VArray(f(v), content == null ? null : f(content));
 		case VOp(op,v1,v2): VOp(op,f(v1),f(v2));
 		case VParent(v): VParent(f(v));
+		case VVar(v): VVar(v);
 		}
 	}
 
@@ -366,6 +371,7 @@ class CssParser {
 		case VArray(v, content): valueStr(v) + "[" + (content == null ? "" : valueStr(content)) + "]";
 		case VOp(op,v1,v2): valueStr(v1)+opStr(op)+valueStr(v2);
 		case VParent(v): "("+valueStr(v)+")";
+		case VVar(v): "@"+v;
 		}
 	}
 
@@ -568,39 +574,84 @@ class CssParser {
 		return c.className.toString();
 	}
 
+	function evalRule( r : CssRule ) : CssRule {
+		return { file : r.file, p : r.p, pmin : r.pmin, pmax : r.pmax, vmin : r.vmin, value : evalRec(r.value) };
+	}
+
+	function evalSubRule( r : CssSheetElement ) : CssSheetElement {
+		return {
+			classes : r.classes,
+			style : [for( s in r.style ) evalRule(s)],
+			transitions : r.transitions,
+			subRules : r.subRules == null ? null : [for( s in r.subRules ) evalSubRule(s)],
+		};
+	}
+
 	function parseSheetElements(parent:CssSheetElement) : Array<CssSheetElement> {
 		var pmin = tokenStart;
 		var classes = readClasses(parent != null);
 		if( allowMixins && classes.length == 1 && getFunIdent(classes[0]) != null && isToken(TPOpen) ) {
-			expect(TPClose);
 			var name = getFunIdent(classes[0]);
-			switch( readToken() ) {
-			case TBrOpen:
-				var rules = parseStyle([null], TBrClose);
-				mixins.set(name, rules);
-				return [];
-			case TSemicolon:
-				var fun = mixins.get(name);
-				if( fun == null ) {
-					warnings.push({ pmin : pmin, pmax : pmin + name.length, msg : "Unknown mixin "+name });
-				} else {
-					for( r in fun.style )
-						parent.style.push(r);
-					if( fun.transitions != null ) {
-						if( parent.transitions == null ) parent.transitions = [];
-						for( t in fun.transitions )
-							parent.transitions.push(t);
-					}
-					if( fun.subRules != null ) {
-						if( parent.subRules == null ) parent.subRules = [];
-						for( r in fun.subRules )
-							parent.subRules.push(r);
-					}
+			var args = [];
+			lazyVars = true;
+			calc++;
+			var arg = readValue(true);
+			calc--;
+			lazyVars = false;
+			if( arg != null ) {
+				switch( arg ) {
+				case VList(vl): args = vl;
+				default: args = [arg];
 				}
+			}
+			expect(TPClose);
+			if( isToken(TBrOpen) ) {
+				var args = [for( a in args ) switch( a ) {
+				case VVar(name): name;
+				default: error("Unknown mixin ."+name+"()"); null;
+				}];
+				var prevVars = null;
+				if( args.length > 0 ) {
+					prevVars = variables.copy();
+					for( a in args )
+						variables.set(a, VVar(a));
+				}
+				calc++;
+				var rules = parseStyle([null], TBrClose);
+				calc--;
+				mixins.set(name, { args : args, rules : rules });
+				if( prevVars != null ) variables = prevVars;
 				return [];
-			case t:
-				push(t);
+			} else {
 				expect(TSemicolon);
+				var fun = mixins.get(name);
+				if( fun == null )
+					error("Unknown mixin ."+name+"()");
+				else if( args.length < fun.args.length )
+					error("Missing mixins params : ("+fun.args.join(",")+") required");
+				else if( args.length > fun.args.length )
+					error("Too many mixins params : ("+fun.args.join(",")+") required");
+				var prevVars = null;
+				var hasArg = args.length > 0;
+				if( args.length > 0 ) {
+					prevVars = variables.copy();
+					for( i => a in args )
+						variables.set(fun.args[i], a);
+				}
+				for( r in fun.rules.style )
+					parent.style.push(hasArg ? evalRule(r) : r);
+				if( fun.rules.transitions != null ) {
+					if( parent.transitions == null ) parent.transitions = [];
+					for( t in fun.rules.transitions )
+						parent.transitions.push(t);
+				}
+				if( fun.rules.subRules != null ) {
+					if( parent.subRules == null ) parent.subRules = [];
+					for( r in fun.rules.subRules )
+						parent.subRules.push(hasArg ? evalSubRule(r) : r);
+				}
+				if( hasArg ) variables = prevVars;
+				return [];
 			}
 		}
 		expect(TBrOpen);
@@ -815,18 +866,24 @@ class CssParser {
 			VSlash;
 		case TAt:
 			var name = readIdent();
-			var value = variables.get(name);
-			if( value == null )
-				error("Unknown variable @"+name);
-			value;
+			if( lazyVars )
+				VVar(name);
+			else {
+				var value = variables.get(name);
+				if( value == null )
+					error("Unknown variable @"+name);
+				value;
+			}
 		case TPOpen:
 			calc++;
 			var v = readValue();
 			expect(TPClose);
+			calc--;
 			eval(VParent(v));
 		case TMinus:
 			calc++;
 			var v = readValue();
+			calc--;
 			eval(makeOp(OSub,VInt(0),v));
 		default:
 			if( !opt ) unexpected(t);
@@ -871,7 +928,6 @@ class CssParser {
 	}
 
 	function eval( v : CssValue ) {
-		calc--;
 		if( calc > 0 ) return v;
 		return evalRec(v);
 	}
@@ -917,6 +973,10 @@ class CssParser {
 			return null;
 		case VParent(v):
 			return evalRec(v);
+		case VVar(v):
+			var val = variables.get(v);
+			if( val == null ) error("Unbound variable @"+v);
+			return val;
 		default:
 			return valueMap(v, evalRec);
 		}
@@ -933,6 +993,13 @@ class CssParser {
 		default:
 			return VOp(op, v1, v2);
 		}
+	}
+
+	function readOp( op, v ) {
+		calc++;
+		var op = makeOp(op, v, readValue());
+		calc--;
+		return eval(op);
 	}
 
 	function readValueNext( v : CssValue ) : CssValue {
@@ -973,17 +1040,13 @@ class CssParser {
 		case TComma:
 			loopComma(v, readValue());
 		case TStar:
-			calc++;
-			return eval(makeOp(OMult, v, readValue()));
+			return readOp(OMult, v);
 		case TPlus:
-			calc++;
-			return eval(makeOp(OAdd, v, readValue()));
+			return readOp(OAdd, v);
 		case TMinus:
-			calc++;
-			return eval(makeOp(OSub, v, readValue()));
+			return readOp(OSub, v);
 		case TSlash:
-			calc++;
-			return eval(makeOp(ODiv, v, readValue()));
+			return readOp(ODiv, v);
 		default:
 			push(t);
 			var v2 = readValue(true);

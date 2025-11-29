@@ -23,6 +23,7 @@ enum CssValue {
 	VArray( v : CssValue, ?content : CssValue );
 	VOp( op : CssOp, v1 : CssValue, v2 : CssValue );
 	VParent( v : CssValue );
+	VVar( name : String );
 }
 
 class HSL {
