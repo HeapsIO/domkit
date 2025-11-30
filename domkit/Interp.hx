@@ -188,15 +188,12 @@ class ScriptChecker extends hscript.Checker {
 	}
 
 	function makePropParser( t : Type ) {
-		return switch( follow(t) ) {
+		return switch( t ) {
 		case TInt: PNamed("Int");
 		case TFloat: PNamed("Float");
 		case TBool: PNamed("Bool");
-		case TAbstract(a,params):
-			return switch( a.name ) {
-			case "Null": POpt(makePropParser(params[0]), "none"); // todo : auto?
-			default: PUnknown;
-			}
+		case TNull(t):
+			POpt(makePropParser(t),"none");
 		case TInst(c,_):
 			switch( c.name ) {
 			case "String": PNamed("String");
@@ -205,7 +202,11 @@ class ScriptChecker extends hscript.Checker {
 		case TEnum(e,_):
 			PEnum(e);
 		default:
-			PUnknown;
+			var t2 = followOnce(t);
+			if( t != t2 )
+				makePropParser(t);
+			else
+				PUnknown;
 		}
 	}
 
@@ -303,18 +304,24 @@ class ScriptChecker extends hscript.Checker {
 			var c = def.c;
 			var p = c;
 			var parent = null;
+			var params = null;
 			while( parent == null && p.superClass != null ) {
 				switch( p.superClass ) {
 				case null:
 					break;
 				case TInst(pp, pl):
-					parent = { comp : cmap.get(pp.name), params : pl };
+					parent = cmap.get(pp.name);
 					p = pp;
+					if( params == null )
+						params = pl;
+					else
+						params = [for( p in params ) apply(p, pp.params, pl)];
 				default:
 					throw "assert";
 				}
 			}
-			comp.parent = parent;
+			if( parent != null )
+				comp.parent = { comp : parent, params : params };
 		}
 	}
 
