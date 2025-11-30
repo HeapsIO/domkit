@@ -36,6 +36,10 @@ class Checker extends hscript.Checker {
 		return inst;
 	}
 
+	public static function isInit() {
+		return @:bypassAccessor inst != null;
+	}
+
 	public static function init( apiFile : String ) {
 		inst = new Checker(apiFile);
 	}
@@ -175,7 +179,9 @@ class Checker extends hscript.Checker {
 			var cl = c;
 			for( i in c.interfaces )
 				switch( i ) {
-				case TInst({ name : "domkit.ComponentDecl"},[TInst(c,_)]): cl = c;
+				case TInst({ name : "domkit.ComponentDecl"},[TInst(creal,_)]):
+					cmap.set(cl.name, comp);
+					cl = creal;
 				default:
 				}
 			comp.classDef = cl;
@@ -262,6 +268,8 @@ class DMLChecker {
 	var filePath : String;
 	var parser : hscript.Parser;
 	var checker : Checker;
+	public var parsers : Array<domkit.CssValue.ValueParser> = [new domkit.CssValue.ValueParser()];
+	public var definedIdents : Map<String, Array<TypedComponent>> = new Map();
 
 	public function new() {
 		checker = Checker.inst;
@@ -321,6 +329,8 @@ class DMLChecker {
 		throw new Error(msg,pos.pmin,pos.pmax);
 	}
 
+	static var R_IDENT = ~/^([A-Za-z_-][A-Za-z0-9_-]*)$/;
+
 	function checkRec( m : Markup, isRoot = false ) {
 		switch( m.kind ) {
 		case Node(name):
@@ -352,21 +362,39 @@ class DMLChecker {
 					continue;
 				case "class":
 					switch( a.value ) {
-					case RawValue(_):
-						continue;
+					case RawValue(str):
+						for( cl in ~/[ \t]+/g.split(str) )
+							defineIdent(c,cl);
 					case Code(code):
 						var t = try typeCode(code, a, checker.t_string) catch( e : hscript.Expr.Error ) typeCode("{"+code+"}",a);
 						var texp = switch( t ) { case TAnon(fl): TAnon([for( f in fl ) { name : f.name, t : TBool, opt : false }]); default: checker.t_string; };
 						unify(t, texp, c, "class", a);
-						continue;
+						// TODO : define idents
 					}
+					continue;
 				case "id":
 					switch( a.value ) {
-					case RawValue(_):
-						continue;
+					case RawValue("true"):
+						for( a in m.attributes )
+							if( a.name == "class" ) {
+								switch( a.value ) {
+								case RawValue(str):
+									var id = str.split(" ")[0];
+									if( R_IDENT.match(id) ) {
+										defineIdent(c, "#"+id);
+										break;
+									}
+								default:
+								}
+								error("Auto-id reference invalid class",a);
+								break;
+							}
+					case RawValue(id):
+						defineIdent(c, "#"+id);
 					case Code(_):
 						error("Not constant id is not allowed",a);
 					}
+					continue;
 				case "__content__":
 					switch( a.value ) {
 					case RawValue("true"):
@@ -390,7 +418,7 @@ class DMLChecker {
 				}
 				switch( a.value ) {
 				case RawValue(str):
-					//typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
+					typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
 				case Code(code):
 					var t = typeCode(code, a, p.type);
 					unify(t, p.type, c, pname, a);
@@ -430,6 +458,121 @@ class DMLChecker {
 			@:privateAccess checker.locals = prevLocals;
 			(m:Dynamic).__expr = expr;
 		case Text(_), Macro(_):
+		}
+	}
+
+	function typeProperty( pname : String, pmin : Int, pmax : Int, value : domkit.CssValue, ?comp : TypedComponent ) {
+		inline function error(msg) {
+			throw new domkit.Error(msg, pmin, pmax);
+		}
+		var pl = [];
+		if( comp != null ) {
+			var p = checker.resolveProperty(comp, pname);
+			if( p == null )
+				error(comp.name+" does not have property "+pname);
+			pl = [p];
+		} else {
+			pl = checker.properties.get(pname);
+			if( pl == null )
+				error("Unknown property "+pname);
+		}
+		var err : String = null;
+		for( p in pl ) {
+			var msg = checkParser(p, p.parser, value);
+			if( msg == null ) return;
+			if( err == null || err.length < msg.length )
+				err = msg;
+		}
+		error(err);
+	}
+
+	function haxeToCss( name : String ) {
+		return name.charAt(0).toLowerCase()+~/[A-Z]/g.map(name.substr(1), (r) -> "-"+r.matched(0).toLowerCase());
+	}
+
+	function checkParser( p : TypedProperty, parser : PropParser, value : domkit.CssValue ) {
+		switch( parser ) {
+		case PUnknown:
+			// no check
+			return null;
+		case PNamed(name):
+			var err : String = null;
+			for( parser in parsers ) {
+				var f = Reflect.field(parser, "parse"+name);
+				if( f != null ) {
+					try {
+						Reflect.callMethod(parser, f, [value]);
+						return null;
+					} catch( e : domkit.Property.InvalidProperty ) {
+						if( err == null || (e.message != null && e.message.length < err.length) )
+							err = e.message ?? "Invalid property "+domkit.CssParser.valueStr(value)+" (should be "+name+")";
+					}
+				}
+			}
+			return err ?? "Could not find matching parser";
+		case POpt(t, def):
+			switch( value ) {
+			case VIdent(n) if( n == def ):
+				return null;
+			default:
+				return checkParser(p, t, value);
+			}
+		case PEnum(e):
+			switch( value ) {
+			case VIdent(i):
+				for( c in e.constructors ) {
+					if( (c.args == null || c.args.length == 0) && haxeToCss(c.name) == i )
+						return null;
+				}
+			default:
+			}
+			return domkit.CssParser.valueStr(value)+" should be "+[for( c in e.constructors ) if( c.args == null || c.args.length == 0 ) haxeToCss(c.name)].join("|");
+		}
+	}
+
+	public function defineIdent( c : TypedComponent, cl : String ) {
+		var comps = definedIdents.get(cl);
+		if( comps == null ) {
+			comps = [];
+			definedIdents.set(cl, comps);
+		}
+		if( comps.indexOf(c) < 0 )
+			comps.push(c);
+	}
+
+	public function checkCSS( rules : CssParser.CssSheet ) {
+		for( r in rules ) {
+			var comp = { r : null };
+			inline function setComp(c:TypedComponent) {
+				if( comp.r == null || comp.r == c )
+					comp.r = c;
+				else
+					comp = null;
+			}
+			for( c in r.classes ) {
+				if( c.component == null ) {
+					if( c.id != null ) {
+						var comps = definedIdents.get("#"+c.id.toString());
+						if( comps == null || comps.length > 1 )
+							comp = null;
+						else
+							setComp(comps[0]);
+					} else
+						comp = null;
+				} else {
+					var comp = checker.components.get(c.component.name);
+					setComp(comp);
+				}
+				if( comp == null ) break;
+			}
+			for( s in r.style ) {
+				var value = s.value;
+				switch( s.value ) {
+				case VLabel("important", val): value = val;
+				default:
+				}
+				typeProperty(s.p.name, s.pmin, s.pmax, value, comp?.r);
+			}
 		}
 	}
 
