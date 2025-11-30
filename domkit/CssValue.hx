@@ -211,6 +211,9 @@ class ValueParser {
 			var c = new HSL(c);
 			c.saturation -= percent / 100;
 			return c.toColor();
+		case VGroup([color,VFloat(alpha)]):
+			var c = parseColor(color);
+			return (c & 0xFFFFFF) | (Std.int((alpha < 0 ? 0 : alpha > 1 ? 1 : alpha) * 255) << 24);
 		default:
 			return invalidProp();
 		}
