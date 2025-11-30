@@ -224,6 +224,11 @@ class CssParser {
 	var lazyVars : Bool;
 	var spacesTokens : Bool;
 	var tokens : Array<Token>;
+	var tokenPos : Array<Int>;
+	var prevToken1 : Int;
+	var prevToken2 : Int;
+	var prevToken3 : Int;
+	var firstClassPos : Int;
 	var warnedComponents : Map<String,Bool>;
 	public var warnings : Array<{ pmin : Int, pmax : Int, msg : String }>;
 	public var allowSubRules = true;
@@ -248,12 +253,12 @@ class CssParser {
 	}
 
 	function error( msg : String ) {
-		throw new Error(msg,pos);
+		throw new Error(msg,tokenStart);
 	}
 
 	function unexpected( t : Token ) : Dynamic {
 		var str = tokenString(t);
-		throw new Error("Unexpected " + str, pos - str.length, pos);
+		throw new Error("Unexpected " + str, tokenStart - str.length, pos);
 		return null;
 	}
 
@@ -293,8 +298,14 @@ class CssParser {
 		if( tk != t ) unexpected(tk);
 	}
 
-	inline function push( t : Token ) {
+	function push( t : Token ) {
 		tokens.push(t);
+		tokenPos.push(tokenStart);
+		tokenStart = prevToken1;
+		prevToken1 = prevToken2;
+		prevToken2 = prevToken3;
+		prevToken3 = -1;
+		if( tokenStart < 0 ) tokenStart = pos;
 	}
 
 	function isToken(t) {
@@ -306,8 +317,13 @@ class CssParser {
 
 	function reset() {
 		pos = 0;
+		tokenStart = 0;
+		prevToken1 = -1;
+		prevToken2 = -1;
+		prevToken3 = -1;
 		calc = 0;
 		tokens = [];
+		tokenPos = [];
 		warnings = [];
 		lazyVars = false;
 		spacesTokens = false;
@@ -438,6 +454,7 @@ class CssParser {
 			if( isToken(eof) )
 				break;
 			var tk = readToken();
+			var start = tokenStart;
 			var name = switch( tk ) {
 			case TAt if( allowVariablesDecl ):
 				var name = readIdent();
@@ -459,10 +476,8 @@ class CssParser {
 			}
 			var hasSpaces = false;
 			var isSubRule = false;
-			var start = 0;
 			while( true ) {
 				spacesTokens = true;
-				start = tokenStart;
 				var tk = readToken();
 				spacesTokens = false;
 				switch( tk ) {
@@ -588,8 +603,9 @@ class CssParser {
 	}
 
 	function parseSheetElements(parent:CssSheetElement) : Array<CssSheetElement> {
-		var pmin = tokenStart;
+		firstClassPos = -1;
 		var classes = readClasses(parent != null);
+		var pmin = firstClassPos;
 		if( allowMixins && classes.length == 1 && getFunIdent(classes[0]) != null && isToken(TPOpen) ) {
 			var name = getFunIdent(classes[0]);
 			var args = [];
@@ -636,7 +652,7 @@ class CssParser {
 				if( args.length > 0 ) {
 					prevVars = variables.copy();
 					for( i => a in args )
-						variables.set(fun.args[i], a);
+						variables.set(fun.args[i], evalRec(a));
 				}
 				for( r in fun.rules.style )
 					parent.style.push(hasArg ? evalRule(r) : r);
@@ -724,8 +740,9 @@ class CssParser {
 		var last = null;
 		var first = true;
 		while( true ) {
-			var p = pos;
 			var t = readToken();
+			var p = tokenStart;
+			if( firstClassPos < 0 ) firstClassPos = p;
 			if( hasParent && first ) {
 				first = false;
 				if( t == TAnd ) {
@@ -814,7 +831,7 @@ class CssParser {
 						case "not-important":
 							c.pseudoClasses |= NotImportant;
 						default:
-							throw new Error("Unknown selector "+i, pos - i.length - 1, pos);
+							throw new Error("Unknown selector "+i, tokenStart, pos);
 						}
 						def = true;
 					default: unexpected(last);
@@ -1150,8 +1167,16 @@ class CssParser {
 	function readToken() {
 	#end
 		var t = tokens.pop();
-		if( t != null )
+		if( t != null ) {
+			prevToken3 = prevToken2;
+			prevToken2 = prevToken1;
+			prevToken1 = tokenStart;
+			tokenStart = tokenPos.pop();
 			return t;
+		}
+		prevToken3 = prevToken2;
+		prevToken2 = prevToken1;
+		prevToken1 = tokenStart;
 		while( true ) {
 			tokenStart = pos;
 			var c = next();
