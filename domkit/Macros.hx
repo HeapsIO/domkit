@@ -35,7 +35,7 @@ class Macros {
 		#if hscript
 		var pos = Context.currentPos();
 		// we cannot assign functions here because they might be local functions which are unwritable
-		return macro $b{[for( v in getLocalVars() ) if( v.name != "__locals" && !v.t.match(TFun(_)) ) { var name = v.name; macro @:pos(pos) $i{name} = __locals.$name.value; }]};
+		return macro $b{[for( v in getLocalVars() ) if( v.name != "__locals" && v.name != "__LOCALS_TYPES" && !v.t.match(TFun(_)) ) { var name = v.name; macro @:pos(pos) $i{name} = __locals.$name.value; }]};
 		#else
 		return macro null;
 		#end
@@ -559,11 +559,20 @@ class Macros {
 			Context.error("Interp generation mode requires -lib hscript", pos);
 			#else
 			var filePath = pos.getInfos().file;
+			fields.push({
+				name : "__INTERP",
+				access: [AStatic],
+				meta : [{ name : ":noCompletion", params : [], pos : pos }],
+				kind : FVar(null,macro false),
+				pos : pos,
+				});
 			initExpr = macro {
-				if( !domkit.Interp.enable )
+				if( !__INTERP )
 					$initExpr;
 				else {
 					var __locals = @:pos(pos) domkit.Macros.generateLocalsObj();
+					static var __LOCALS_TYPES;
+					if( false ) __LOCALS_TYPES = __locals;
 					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
 					@:pos(pos) domkit.Macros.generateLocalsRestore();
 				}
