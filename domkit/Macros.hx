@@ -31,6 +31,15 @@ class Macros {
 		#end
 	}
 
+	public macro static function generateLocalsTypes() {
+		#if hscript
+		var pos = Context.currentPos();
+		return { expr : EObjectDecl([for( v in getLocalVars() ) if( v.name != "__locals" && v.name != "__LOCALS_TYPES" ) { field : v.name, expr : macro $i{v.name} }]), pos : pos };
+		#else
+		return macro null;
+		#end
+	}
+
 	public macro static function generateLocalsRestore() {
 		#if hscript
 		var pos = Context.currentPos();
@@ -572,7 +581,7 @@ class Macros {
 				else {
 					var __locals = @:pos(pos) domkit.Macros.generateLocalsObj();
 					static var __LOCALS_TYPES;
-					if( false ) __LOCALS_TYPES = __locals;
+					if( false ) __LOCALS_TYPES = domkit.Macros.generateLocalsTypes();
 					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
 					@:pos(pos) domkit.Macros.generateLocalsRestore();
 				}

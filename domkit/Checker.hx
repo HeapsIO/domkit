@@ -284,7 +284,7 @@ class DMLChecker {
 		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end;
 		for( l in Reflect.fields(locals) ) {
 			var lval : Dynamic = Reflect.field(locals,l);
-			@:privateAccess checker.locals.set(l, lval.type == null ? TUnresolved("Local#"+l) : checker.makeType(lval.type,pos));
+			@:privateAccess checker.locals.set(l, lval.ctype != null ? lval.ctype : lval.type == null ? TUnresolved("Local#"+l) : checker.makeType(lval.type,pos));
 		}
 		switch( dml.kind ) {
 		case Node(name):
@@ -434,7 +434,7 @@ class DMLChecker {
 		case CodeBlock(v):
 			typeCode(v, m);
 		case For(cond):
-			var expr = parser.parseString("for"+cond+"{}", filePath, m.pmin - 3);
+			var expr = parser.parseString("for"+cond+"{}", filePath, m.pmin);
 			var prevLocals = @:privateAccess checker.locals.copy();
 			@:privateAccess switch( hscript.Tools.expr(expr) ) {
 			case EFor(v, it, _):
@@ -551,7 +551,7 @@ class DMLChecker {
 			}
 			for( c in r.classes ) {
 				if( c.component == null ) {
-					if( c.id != null ) {
+					if( c.id.isDefined() ) {
 						var comps = definedIdents.get("#"+c.id.toString());
 						if( comps == null || comps.length > 1 )
 							comp = null;
