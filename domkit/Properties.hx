@@ -108,15 +108,20 @@ class Properties<T:Model<T>> {
 	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
 		if( partialRefresh && !dirty.dirty ) return;
 		var prev = APPLY_LOOPS;
+		var wasDirty = false;
 		APPLY_LOOPS = 0;
 		do {
-			// if we did apply the style to a children element manually, we should not mark things
-			// as done as some parents styles might have not yet been updated
-			if( parent == null ) dirty.dirty = false;
+			if( dirty.dirty ) {
+				wasDirty = true;
+				dirty.dirty = false;
+			}
 			style.applyStyle(this, !partialRefresh);
 			APPLY_LOOPS++;
-		} while( parent == null && dirty.dirty );
+		} while( dirty.dirty );
 		APPLY_LOOPS = prev;
+		// if we did apply the style to a children element manually, we should not mark things
+		// as done as some parents styles might have not yet been updated
+		if( parent != null && wasDirty ) dirty.mark();
 	}
 
 	public function removeClass( c : String ) {
