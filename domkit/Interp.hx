@@ -103,35 +103,10 @@ class Interp {
 	}
 
 	function load() {
-		for( dir in SRC_PATHS ) {
-			var path = dir+"/"+fileName;
-			if( sys.FileSystem.exists(path) ) {
-				var compReg = ~/SRC[ \t\r\n]*=[ \t\r\n]*/;
-				var content = sys.io.File.getContent(path);
-				var current = content;
-				while( compReg.match(current) ) {
-					var next = compReg.matchedRight();
-					if( StringTools.startsWith(next,"<"+compName) ) {
-						var c = next.charCodeAt(compName.length + 1);
-						if( (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '_'.code ) {
-							current = next;
-							continue;
-						}
-						var startPos = content.length - next.length;
-						var endTag = "</"+compName+">";
-						var endPos = next.indexOf(endTag);
-						if( endPos < 0 ) throw 'Missing $endTag in $path';
-						var dp = new Checker.DMLChecker();
-						dml = dp.parse(next.substr(0,endPos+endTag.length), path, startPos, locals);
-						return;
-					}
-					current = next;
-				}
-				// NO SRC ? skip
-				return;
-			}
-		}
-		throw fileName+" was not found";
+		var src = getCompSrc(fileName, compName);
+		if( src == null ) return;
+		var dp = new Checker.DMLChecker();
+		dml = dp.parse(src.content, src.path, src.pos, locals);
 	}
 
 	function execute( obj : Model<Dynamic>, locals : {} ) {
@@ -166,7 +141,8 @@ class Interp {
 
 	function eval( e : CodeExpr, pos : { pmin : Int, pmax : Int } ) : Dynamic {
 		var expr : hscript.Expr = (pos:Dynamic).__expr;
-		if( expr == null ) error("Expression was not type checked",pos);
+		if( expr == null )
+			error("Expression was not type checked",pos);
 		return interp.expr(expr);
 	}
 
@@ -314,12 +290,86 @@ class Interp {
 
 	static var COMP_CACHE = new Map();
 	public static function run( obj : Model<Dynamic>, compName : String, fileName : String, locals : {} ) {
-		var i = COMP_CACHE.get(compName);
-		if( i == null ) {
-			i = new Interp(compName,fileName,locals);
-			COMP_CACHE.set(compName, i);
+		function execute() {
+			var i = COMP_CACHE.get(compName);
+			if( i == null ) {
+				i = new Interp(compName,fileName,locals);
+				COMP_CACHE.set(compName, i);
+			}
+			i.execute(obj, locals);
 		}
-		i.execute(obj, locals);
+		if( onError == null )
+			execute();
+		else {
+			try {
+				execute();
+			} catch( e : domkit.Error ) {
+				onError(e.message);
+			} catch( e : hscript.Expr.Error ) {
+				onError(e.toString());
+			}
+		}
+	}
+
+	public static function clearCache( name : String ) {
+		COMP_CACHE.remove(name);
+	}
+
+	static var COMPONENTS = new Array<{cl:Class<Dynamic>,name:String,file:String}>();
+	static function register(cl,name,file) {
+		COMPONENTS.push({cl:cl,name:name,file:file});
+		return false; // stored in __INTERP
+	}
+
+	static function getCompSrc( fileName : String, compName : String ) {
+		#if sys
+		for( dir in SRC_PATHS ) {
+			var path = dir+"/"+fileName;
+			if( sys.FileSystem.exists(path) ) {
+				var compReg = ~/SRC[ \t\r\n]*=[ \t\r\n]*/;
+				var content = sys.io.File.getContent(path);
+				var current = content;
+				while( compReg.match(current) ) {
+					var next = compReg.matchedRight();
+					if( StringTools.startsWith(next,"<"+compName) ) {
+						var c = next.charCodeAt(compName.length + 1);
+						if( (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '_'.code ) {
+							current = next;
+							continue;
+						}
+						var startPos = content.length - next.length;
+						var endTag = "</"+compName+">";
+						var endPos = next.indexOf(endTag);
+						if( endPos < 0 ) throw 'Missing $endTag in $path';
+						return { path : path, content : next.substr(0,endPos+endTag.length), pos : startPos };
+					}
+					current = next;
+				}
+			}
+		}
+		#end
+		return null;
+	}
+
+	public static var onError : (msg:String) -> Void;
+
+	public static function init( srcPaths : Array<String>, registerWatch ) {
+		SRC_PATHS = srcPaths;
+		var found = false;
+		for( comp in COMPONENTS ) {
+			var src = getCompSrc(comp.file, comp.name);
+			if( src == null ) continue;
+			found = true;
+			registerWatch(src.path, function() {
+				var src2 = getCompSrc(comp.file, comp.name);
+				if( src2 == null || src2.content == src.content ) return null;
+				src = src2;
+				Reflect.setField(comp.cl,"__INTERP",true);
+				clearCache(comp.name);
+				return comp.cl;
+			});
+		}
+		return found;
 	}
 
 }

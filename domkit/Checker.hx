@@ -41,7 +41,8 @@ class Checker extends hscript.Checker {
 	}
 
 	public static function init( apiFile : String ) {
-		inst = new Checker(apiFile);
+		inst = new Checker();
+		inst.loadApiFile(apiFile);
 	}
 
 	public var t_string : Type;
@@ -49,11 +50,22 @@ class Checker extends hscript.Checker {
 	public var properties : Map<String, Array<TypedProperty>>;
 	var onMarkup : String -> Expr -> Void;
 
-	public function new(apiFile:String) {
+	public function new() {
 		var types = new hscript.Checker.CheckerTypes();
-		var xml = Xml.parse(sys.io.File.getContent(apiFile));
-		types.addXmlApi(xml.firstElement());
 		super(types);
+	}
+
+	public function loadApiFile( apiFile : String ) {
+		#if !sys
+		throw "Requires sys platform";
+		#else
+		loadApiData(sys.io.File.getContent(apiFile));
+		#end
+	}
+
+	public function loadApiData( apiData : String ) {
+		var xml = Xml.parse(apiData);
+		types.addXmlApi(xml.firstElement());
 		initComponents();
 		t_string = types.t_string;
 		if( t_string == null )
@@ -361,6 +373,10 @@ class DMLChecker {
 
 			for( a in m.attributes ) {
 				var vpos = { pmin : a.vmin, pmax : a.pmax };
+				inline function setTypedExpr() {
+					// move the stored expr from vpos to attribute (for retreival by Interp later)
+					(a : Dynamic).__expr = (vpos : Dynamic).__expr;
+				}
 				switch( a.name ) {
 				case "public":
 					continue;
@@ -372,6 +388,7 @@ class DMLChecker {
 					case Code(code):
 						var t = try typeCode(code, vpos, checker.t_string) catch( e : hscript.Expr.Error ) { vpos.pmin--; var e = typeCode("{"+code+"}",vpos); vpos.pmin++; e; }
 						var texp = switch( t ) { case TAnon(fl): TAnon([for( f in fl ) { name : f.name, t : TBool, opt : false }]); default: checker.t_string; };
+						setTypedExpr();
 						unify(t, texp, c, "class", vpos);
 						// TODO : define idents
 					}
@@ -415,7 +432,10 @@ class DMLChecker {
 						error(c.name+" does not have property "+a.name, a);
 					var pt = switch( a.value ) {
 					case RawValue(_): checker.t_string;
-					case Code(code): typeCode(code, vpos, t);
+					case Code(code):
+						var pt = typeCode(code, vpos, t);
+						setTypedExpr();
+						pt;
 					}
 					unify(pt, t, c, a.name, vpos);
 					continue;
@@ -425,6 +445,7 @@ class DMLChecker {
 					typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
 				case Code(code):
 					var t = typeCode(code, vpos, p.type);
+					setTypedExpr();
 					unify(t, p.type, c, pname, vpos);
 				}
 			}

@@ -567,12 +567,22 @@ class Macros {
 			#if !hscript
 			Context.error("Interp generation mode requires -lib hscript", pos);
 			#else
-			var filePath = pos.getInfos().file;
+			var filePath = pos.getInfos().file.split("\\").join("/");
+			var classPath = Context.getClassPath();
+			classPath.push(Sys.getCwd());
+			classPath.sort((c1,c2) -> c2.length - c1.length);
+			for( path in classPath ) {
+				path = path.split("\\").join("/");
+				if( StringTools.startsWith(filePath,path) ) {
+					filePath = filePath.substr(path.length);
+					break;
+				}
+			}
 			fields.push({
 				name : "__INTERP",
 				access: [AStatic],
 				meta : [{ name : ":noCompletion", params : [], pos : pos }],
-				kind : FVar(null,macro false),
+				kind : FVar(null,macro @:privateAccess domkit.Interp.register($i{cl.name},$v{rootComp.name},$v{filePath})),
 				pos : pos,
 				});
 			initExpr = macro {
