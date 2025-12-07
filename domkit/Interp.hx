@@ -301,10 +301,13 @@ class Interp {
 		if( onError == null )
 			execute();
 		else {
+			// use double catch for debugger
 			try {
-				execute();
-			} catch( e : domkit.Error ) {
-				onError(e.message);
+				try {
+					execute();
+				} catch( e : domkit.Error ) {
+					onError(e.message);
+				}
 			} catch( e : hscript.Expr.Error ) {
 				onError(e.toString());
 			}
@@ -322,7 +325,7 @@ class Interp {
 	}
 
 	static function getCompSrc( fileName : String, compName : String ) {
-		#if sys
+		#if (sys || hxnodejs)
 		for( dir in SRC_PATHS ) {
 			var path = dir+"/"+fileName;
 			if( sys.FileSystem.exists(path) ) {

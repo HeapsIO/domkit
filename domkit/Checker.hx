@@ -53,10 +53,12 @@ class Checker extends hscript.Checker {
 	public function new() {
 		var types = new hscript.Checker.CheckerTypes();
 		super(types);
+		allowPrivateAccess = true;
+		allowNew = true;
 	}
 
 	public function loadApiFile( apiFile : String ) {
-		#if !sys
+		#if !(sys || hxnodejs)
 		throw "Requires sys platform";
 		#else
 		loadApiData(sys.io.File.getContent(apiFile));
