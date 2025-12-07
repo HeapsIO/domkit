@@ -379,8 +379,8 @@ class Macros {
 					},
 				];
 			} else {
-				var newExpr = macro @:pos(pos) domkit.Properties.createNew($v{name},tmp, [$a{eargs}], $attributes);
-				[macro @:pos(pos) var tmp = @:privateAccess $newExpr];
+				var newExpr = macro @:pos(pos) (@:privateAccess domkit.Properties.createNew)($v{name},tmp, [$a{eargs}], $attributes);
+				[macro @:pos(pos) var tmp = $newExpr];
 			}
 			if( isContent ) {
 				exprs.push(macro __contentRoot = tmp);
