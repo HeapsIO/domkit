@@ -73,6 +73,8 @@ class Macros {
 	#end
 
 	public static function allowInterp(b:Bool=true) {
+		if( #if hscript !hscript.LiveClass.isEnable() #else true #end )
+			Context.error("domkit.Macro.allowInterp() requires previous hscript.LiveClass.enable() call", Context.currentPos());
 		ALLOW_INTERP = b;
 	}
 
@@ -567,17 +569,7 @@ class Macros {
 			#if !hscript
 			Context.error("Interp generation mode requires -lib hscript", pos);
 			#else
-			var filePath = pos.getInfos().file.split("\\").join("/");
-			var classPath = Context.getClassPath();
-			classPath.push(Sys.getCwd());
-			classPath.sort((c1,c2) -> c2.length - c1.length);
-			for( path in classPath ) {
-				path = path.split("\\").join("/");
-				if( StringTools.startsWith(filePath,path) ) {
-					filePath = filePath.substr(path.length);
-					break;
-				}
-			}
+			var filePath = hscript.LiveClass.getFilePath(pos);
 			fields.push({
 				name : "__INTERP",
 				access: [AStatic],

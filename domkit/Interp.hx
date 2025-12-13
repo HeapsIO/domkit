@@ -85,8 +85,6 @@ class ScriptInterp extends hscript.Interp {
 
 class Interp {
 
-	public static var SRC_PATHS = ["."];
-
 	var compName : String;
 	var fileName : String;
 	var dml : Markup;
@@ -94,6 +92,15 @@ class Interp {
 	var currentObj : Model<Dynamic>;
 	var interp : ScriptInterp;
 	var locals : {};
+
+	static var checker : Checker;
+
+	public static function getChecker() {
+		if( checker != null )
+			return checker;
+		checker = new Checker(hscript.LiveClass.getTypes());
+		return checker;
+	}
 
 	function new( compName, fileName, locals ) {
 		this.compName = compName;
@@ -105,8 +112,8 @@ class Interp {
 	function load() {
 		var src = getCompSrc(fileName, compName);
 		if( src == null ) return;
-		var dp = new Checker.DMLChecker();
-		dml = dp.parse(src.content, src.path, src.pos, locals);
+		var dp = new Checker.DMLChecker(getChecker());
+		dml = dp.parse(src.content, fileName, src.pos, locals);
 	}
 
 	function execute( obj : Model<Dynamic>, locals : {} ) {
@@ -324,31 +331,26 @@ class Interp {
 		return false; // stored in __INTERP
 	}
 
-	static function getCompSrc( fileName : String, compName : String ) {
+	static function getCompSrc( path : String, compName : String ) {
 		#if (sys || hxnodejs)
-		for( dir in SRC_PATHS ) {
-			var path = dir+"/"+fileName;
-			if( sys.FileSystem.exists(path) ) {
-				var compReg = ~/SRC[ \t\r\n]*=[ \t\r\n]*/;
-				var content = sys.io.File.getContent(path);
-				var current = content;
-				while( compReg.match(current) ) {
-					var next = compReg.matchedRight();
-					if( StringTools.startsWith(next,"<"+compName) ) {
-						var c = next.charCodeAt(compName.length + 1);
-						if( (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '_'.code ) {
-							current = next;
-							continue;
-						}
-						var startPos = content.length - next.length;
-						var endTag = "</"+compName+">";
-						var endPos = next.indexOf(endTag);
-						if( endPos < 0 ) throw 'Missing $endTag in $path';
-						return { path : path, content : next.substr(0,endPos+endTag.length), pos : startPos };
-					}
+		var compReg = ~/SRC[ \t\r\n]*=[ \t\r\n]*/;
+		var content = sys.io.File.getContent(path);
+		var current = content;
+		while( compReg.match(current) ) {
+			var next = compReg.matchedRight();
+			if( StringTools.startsWith(next,"<"+compName) ) {
+				var c = next.charCodeAt(compName.length + 1);
+				if( (c >= 'a'.code && c <= 'z'.code) || (c >= 'A'.code && c <= 'Z'.code) || (c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '_'.code ) {
 					current = next;
+					continue;
 				}
+				var startPos = content.length - next.length;
+				var endTag = "</"+compName+">";
+				var endPos = next.indexOf(endTag);
+				if( endPos < 0 ) throw 'Missing $endTag in $path';
+				return { content : next.substr(0,endPos+endTag.length), pos : startPos };
 			}
+			current = next;
 		}
 		#end
 		return null;
@@ -356,21 +358,22 @@ class Interp {
 
 	public static var onError : (msg:String) -> Void;
 
-	public static function init( srcPaths : Array<String>, registerWatch ) {
-		SRC_PATHS = srcPaths;
+	public static function init( callb ) {
 		var found = false;
 		for( comp in COMPONENTS ) {
-			var src = getCompSrc(comp.file, comp.name);
-			if( src == null ) continue;
-			found = true;
-			registerWatch(src.path, function() {
-				var src2 = getCompSrc(comp.file, comp.name);
-				if( src2 == null || src2.content == src.content ) return null;
+			var path : String = null, src : { content : String, pos : Int } = null;
+			path = hscript.LiveClass.registerFile(comp.file, function() {
+				if( src == null ) return;
+				var src2 = getCompSrc(path, comp.name);
+				if( src2 == null || src2.content == src.content ) return;
 				src = src2;
 				Reflect.setField(comp.cl,"__INTERP",true);
 				clearCache(comp.name);
-				return comp.cl;
+				callb(comp.cl);
 			});
+			if( path == null ) continue;
+			src = getCompSrc(path, comp.name);
+			if( src != null ) found = true;
 		}
 		return found;
 	}

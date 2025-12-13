@@ -29,49 +29,19 @@ typedef TypedComponent = {
 
 class Checker extends hscript.Checker {
 
-	public static var inst(get,default) : Checker;
-
-	static function get_inst() {
-		if( inst == null ) throw "Checker has not been initialized with domkit.Checker.init()";
-		return inst;
-	}
-
-	public static function isInit() {
-		return @:bypassAccessor inst != null;
-	}
-
-	public static function init( apiFile : String ) {
-		inst = new Checker();
-		inst.loadApiFile(apiFile);
-	}
-
 	public var t_string : Type;
 	public var components : Map<String,TypedComponent>;
 	public var properties : Map<String, Array<TypedProperty>>;
 	var onMarkup : String -> Expr -> Void;
 
-	public function new() {
-		var types = new hscript.Checker.CheckerTypes();
+	public function new(types) {
 		super(types);
 		allowPrivateAccess = true;
 		allowNew = true;
-	}
-
-	public function loadApiFile( apiFile : String ) {
-		#if !(sys || hxnodejs)
-		throw "Requires sys platform";
-		#else
-		loadApiData(sys.io.File.getContent(apiFile));
-		#end
-	}
-
-	public function loadApiData( apiData : String ) {
-		var xml = Xml.parse(apiData);
-		types.addXmlApi(xml.firstElement());
 		initComponents();
 		t_string = types.t_string;
 		if( t_string == null )
-			throw "Could not load API XML";
+			throw "XML types API was not initialized";
 	}
 
 	public function begin( onMarkup ) {
@@ -285,8 +255,8 @@ class DMLChecker {
 	public var parsers : Array<domkit.CssValue.ValueParser> = [new domkit.CssValue.ValueParser()];
 	public var definedIdents : Map<String, Array<TypedComponent>> = new Map();
 
-	public function new() {
-		checker = Checker.inst;
+	public function new(checker:Checker) {
+		this.checker = checker;
 	}
 
 	public function parse( data : String, filePath : String, filePos : Int, locals : {} ) : Markup {
