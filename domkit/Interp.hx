@@ -296,11 +296,18 @@ class Interp {
 	}
 
 	static var COMP_CACHE = new Map();
-	public static function run( obj : Model<Dynamic>, compName : String, fileName : String, locals : {} ) {
+	public static function run( obj : Model<Dynamic>, compName : String, locals : {} ) {
 		function execute() {
 			var i = COMP_CACHE.get(compName);
 			if( i == null ) {
-				i = new Interp(compName,fileName,locals);
+				var c = null;
+				for( cc in COMPONENTS ) {
+					if( cc.name == compName ) {
+						c = cc;
+						break;
+					}
+				}
+				i = new Interp(compName,c.path,locals);
 				COMP_CACHE.set(compName, i);
 			}
 			i.execute(obj, locals);
@@ -325,7 +332,7 @@ class Interp {
 		COMP_CACHE.remove(name);
 	}
 
-	static var COMPONENTS = new Array<{cl:Class<Dynamic>,name:String,file:String}>();
+	static var COMPONENTS = new Array<{cl:Class<Dynamic>,name:String,file:String,?path:String}>();
 	static function register(cl,name,file) {
 		COMPONENTS.push({cl:cl,name:name,file:file});
 		return false; // stored in __INTERP
@@ -361,18 +368,22 @@ class Interp {
 	public static function init( callb ) {
 		var found = false;
 		for( comp in COMPONENTS ) {
-			var path : String = null, src : { content : String, pos : Int } = null;
-			path = hscript.LiveClass.registerFile(comp.file, function() {
+			if( comp.path != null ) {
+				found = true;
+				continue;
+			}
+			var src : { content : String, pos : Int } = null;
+			comp.path = hscript.LiveClass.registerFile(comp.file, function() {
 				if( src == null ) return;
-				var src2 = getCompSrc(path, comp.name);
+				var src2 = getCompSrc(comp.path, comp.name);
 				if( src2 == null || src2.content == src.content ) return;
 				src = src2;
 				Reflect.setField(comp.cl,"__INTERP",true);
 				clearCache(comp.name);
 				callb(comp.cl);
 			});
-			if( path == null ) continue;
-			src = getCompSrc(path, comp.name);
+			if( comp.path == null ) continue;
+			src = getCompSrc(comp.path, comp.name);
 			if( src != null ) found = true;
 		}
 		return found;

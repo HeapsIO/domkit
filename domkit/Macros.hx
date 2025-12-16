@@ -584,7 +584,7 @@ class Macros {
 					var __locals = @:pos(pos) domkit.Macros.generateLocalsObj();
 					static var __LOCALS_TYPES;
 					if( false ) __LOCALS_TYPES = domkit.Macros.generateLocalsTypes();
-					domkit.Interp.run(this,$v{rootComp.name},$v{filePath},__locals);
+					domkit.Interp.run(this,$v{rootComp.name},__locals);
 					@:pos(pos) domkit.Macros.generateLocalsRestore();
 				}
 			};
