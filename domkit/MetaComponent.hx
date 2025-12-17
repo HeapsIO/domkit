@@ -351,8 +351,9 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					var fname = "parse" + ab.name;
 
 					var parserField = parserDependencies.get(fname);
+					var errMsg = idents.length > 8 ? " is not part of " + ab.name : " should be "+idents.join("|");
 					if (parserField == null) {
-						var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join("|"));
+						var invalidEnum = macro parser.invalidProp(i + $v{errMsg});
 						parserField = {
 							name: fname,
 							pos: pos,
@@ -391,7 +392,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						value : function(css:CssValue) {
 							return switch( css ) {
 								case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
-								case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
+								case VIdent(v): parser.invalidProp(v + errMsg);
 								default: parser.invalidProp();
 							}
 						},
