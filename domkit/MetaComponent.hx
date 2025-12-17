@@ -387,7 +387,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						};
 						parserDependencies.set(fname, parserField);
 					}
-					return {
+					var p = {
 						expr: (macro $i{fname}),
 						value : function(css:CssValue) {
 							return switch( css ) {
@@ -398,6 +398,16 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						},
 						def : null,
 					};
+					switch( mode ) {
+					case PNone:
+						p.expr = macro parser.parseNone.bind(${p.expr});
+						p.value = parser.parseNone.bind(p.value);
+					case PAuto:
+						p.expr = macro parser.parseAuto.bind(${p.expr});
+						p.value = parser.parseAuto.bind(p.value);
+					case PCustom:
+					}
+					return p;
 				}
 			}
 		case TInst(c,_):
