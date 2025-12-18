@@ -351,8 +351,9 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 					var fname = "parse" + ab.name;
 
 					var parserField = parserDependencies.get(fname);
+					var errMsg = idents.length > 8 ? " is not part of " + ab.name : " should be "+idents.join("|");
 					if (parserField == null) {
-						var invalidEnum = macro parser.invalidProp(i+" should be "+idents.join("|"));
+						var invalidEnum = macro parser.invalidProp(i + $v{errMsg});
 						parserField = {
 							name: fname,
 							pos: pos,
@@ -386,17 +387,27 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 						};
 						parserDependencies.set(fname, parserField);
 					}
-					return {
+					var p = {
 						expr: (macro $i{fname}),
 						value : function(css:CssValue) {
 							return switch( css ) {
 								case VIdent(i) if( idents.indexOf(i) >= 0 || fallback.indexOf(i) >= 0 ): true;
-								case VIdent(v): parser.invalidProp(v+" should be "+idents.join("|"));
+								case VIdent(v): parser.invalidProp(v + errMsg);
 								default: parser.invalidProp();
 							}
 						},
 						def : null,
 					};
+					switch( mode ) {
+					case PNone:
+						p.expr = macro parser.parseNone.bind(${p.expr});
+						p.value = parser.parseNone.bind(p.value);
+					case PAuto:
+						p.expr = macro parser.parseAuto.bind(${p.expr});
+						p.value = parser.parseAuto.bind(p.value);
+					case PCustom:
+					}
+					return p;
 				}
 			}
 		case TInst(c,_):
