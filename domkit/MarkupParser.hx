@@ -249,6 +249,31 @@ class MarkupParser {
 							'\r'.code,
 							'\t'.code,
 							' '.code:
+						case '/'.code:
+							c = str.fastCodeAt(++p);
+							switch( c ) {
+							case '/'.code:
+								while( true ) {
+									c = str.fastCodeAt(++p);
+									if( StringTools.isEof(c) || c == '\n'.code )
+										break;
+								}
+								continue;
+							case '*'.code:
+								var start = p;
+								while( true ) {
+									c = str.fastCodeAt(++p);
+									if( StringTools.isEof(c) )
+										error("Unclosed comment", start, start+2);
+									if( c == '/'.code && str.fastCodeAt(p-1) == '*'.code )
+										break;
+								}
+							default:
+								state = next;
+								p--;
+								c = '/'.code;
+								continue;
+							}
 						default:
 							state = next;
 							continue;
