@@ -238,6 +238,7 @@ class CssParser {
 	public var allowSingleLineComment = true;
 	public var variables : Map<String, CssValue> = [];
 	public var mixins : Map<String, { rules : CssSheetElement, args : Array<String> }> = [];
+	var macros : Map<String, (args:Array<CssValue>,parent:CssSheetElement) -> String> = [];
 
 	static var ERASED = new Identifier("@");
 	static var DEFAULT_CURVE : Curve = new BezierCurve(0.25,0.1,0.25,1.0);
@@ -252,8 +253,13 @@ class CssParser {
 	public function new() {
 	}
 
-	function error( msg : String ) {
+	public function addMacro(name, callb) {
+		macros.set(name, callb);
+	}
+
+	public function error( msg : String ) : Dynamic {
 		throw new Error(msg,tokenStart);
+		return null;
 	}
 
 	function unexpected( t : Token ) : Dynamic {
@@ -641,9 +647,14 @@ class CssParser {
 			} else {
 				expect(TSemicolon);
 				var fun = mixins.get(name);
-				if( fun == null )
+				if( fun == null ) {
+					var m = macros.get(name);
+					if( m != null ) {
+						var str = m(args,parent);
+						return parseMacroResult(pmin,name,str);
+					}
 					error("Unknown mixin ."+name+"()");
-				else if( args.length < fun.args.length )
+				} else if( args.length < fun.args.length )
 					error("Missing mixins params : ("+fun.args.join(",")+") required");
 				else if( args.length > fun.args.length )
 					error("Too many mixins params : ("+fun.args.join(",")+") required");
@@ -695,6 +706,19 @@ class CssParser {
 			return out;
 		}
 		return [elt];
+	}
+
+	function parseMacroResult( pmin : Int, name : String, content : String ) {
+		var prev = css, prevPos = pos, prevFile = file, pmax = tokenStart;
+		var s = try parseSheet(content, file+"."+name) catch( e : Error ) {
+			e.pmin = pmin;
+			e.pmax = pmax;
+			throw e;
+		}
+		css = prev;
+		pos = prevPos;
+		file = prevFile;
+		return s;
 	}
 
 	public function parseClasses( css : String, ?hasParent, ?file : String ) {
