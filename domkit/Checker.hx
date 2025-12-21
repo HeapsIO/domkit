@@ -268,6 +268,7 @@ class DMLChecker {
 		this.parser.allowMetadata = true;
 		this.parser.allowTypes = true;
 		checker.begin(parseMarkup);
+		checker.imports = [];
 		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end;
 		for( l in Reflect.fields(locals) ) {
 			var lval : Dynamic = Reflect.field(locals,l);
@@ -276,7 +277,13 @@ class DMLChecker {
 		switch( dml.kind ) {
 		case Node(name):
 			var c = checker.components.get(name);
-			if( c != null ) @:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
+			if( c != null ) {
+				@:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
+				var pack = c.classDef.name.split(".");
+				pack.pop();
+				if( pack.length > 0 )
+					checker.imports.push(pack.join("."));
+			}
 		default:
 		}
 		checkRec(dml, true);
@@ -322,6 +329,9 @@ class DMLChecker {
 		switch( m.kind ) {
 		case Node(name):
 			var c = checker.components.get(name);
+			var prev = checker.getGlobals().get("__this__");
+			if( c.classDef != null )
+				checker.setGlobal("__this__", TInst(c.classDef,c.classDef.params));
 			if( c == null )
 				error("Unknown component "+name,m);
 			if( isRoot ) {
@@ -426,6 +436,10 @@ class DMLChecker {
 			 	var t = typeCode(cond.cond, cond, TBool);
 				unify(t, TBool, c, "if", cond);
 			}
+			if( prev == null )
+				checker.removeGlobal("__this__");
+			else
+				checker.setGlobal("__this__", prev);
 			for( c in m.children )
 				checkRec(c);
 		case CodeBlock(v):
