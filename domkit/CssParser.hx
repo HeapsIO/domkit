@@ -1008,7 +1008,9 @@ class CssParser {
 				if( !Math.isNaN(r) ) {
 					return switch( [v1,v2] ) {
 					case [VUnit(_,u), _] | [_,VUnit(_,u)]: VUnit(r,u);
-					default: VFloat(r);
+					default:
+						var ir = Std.int(r);
+						ir == r ? VInt(ir) : VFloat(r);
 					}
 				}
 			}
