@@ -17,15 +17,7 @@ class ScriptInterp extends hscript.Interp {
 		this.obj = obj;
 		this.objLocals = locals;
 		variables.set("this", obj);
-		variables.set("__resolve", resolveType);
-	}
-
-	function resolveType( path : String ) : Dynamic {
-		var c = std.Type.resolveClass(path);
-		if( c != null ) return c;
-		var e = std.Type.resolveEnum(path);
-		if( e != null ) return e;
-		throw "Invalid type "+path;
+		allowTypeResolve();
 	}
 
 	override function exprMeta(meta:String, args:Array<hscript.Expr>, e:hscript.Expr):Dynamic {

@@ -38,6 +38,7 @@ class Checker extends hscript.Checker {
 		super(types);
 		allowPrivateAccess = true;
 		allowNew = true;
+		allowGlobalTypes = true;
 		initComponents();
 		t_string = types.t_string;
 		if( t_string == null )
@@ -67,17 +68,6 @@ class Checker extends hscript.Checker {
 			}
 		}
 		return super.checkMeta(m, args, next, expr, withType);
-	}
-
-	override function getTypeAccess(t, expr, ?field) {
-		var path = switch( t ) {
-		case TInst(c,_): c.name;
-		case TEnum(e,_): e.name;
-		default: return null;
-		}
-		var e : hscript.Expr.ExprDef = ECall(mk(EIdent("__resolve"),expr),[mk(EConst(CString(path)),expr)]);
-		if( field != null ) e = EField(mk(e,expr),field);
-		return e;
 	}
 
 	public function resolveProperty( comp : TypedComponent, name : String ) {
