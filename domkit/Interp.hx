@@ -330,7 +330,7 @@ class Interp {
 		return false; // stored in __INTERP
 	}
 
-	static function getCompSrc( path : String, compName : String ) {
+	static function getCompSrc( path : String, compName : String ) : { content : String, pos : Int } {
 		#if (sys || hxnodejs)
 		var compReg = ~/SRC[ \t\r\n]*=[ \t\r\n]*/;
 		var content = sys.io.File.getContent(path);
