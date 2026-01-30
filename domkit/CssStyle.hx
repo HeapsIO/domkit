@@ -392,8 +392,9 @@ class CssStyle {
 			componentsBits = prevBits;
 	}
 
+	var applyCount = 0;
 	function applyStyleRec( e : Properties<Dynamic>, force : Bool, rules : Array<Rule> ) {
-
+		++applyCount;
 		var prev = -1;
 		if( useSmartCache ) {
 			prev = setCompBit(e.component.id);
@@ -589,6 +590,15 @@ class CssStyle {
 
 		if( prev >= 0 )
 			componentsBits.set(e.component.id >> 3, prev);
+	}
+
+	public function syncDirty( root : Properties<Dynamic> ) {
+		var dirty = root.dirty;
+		var cur = dirty.head;
+		while (dirty.head != null) {
+			var cur = dirty.head;
+			cur.applyStyle(this, true);
+		}
 	}
 
 	public function updateTime( dt : Float ) {

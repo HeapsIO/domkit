@@ -7,13 +7,64 @@ enum SetAttributeResult {
 	InvalidValue( ?msg : String );
 }
 
-private class DirtyRef {
-	var dirty : Bool;
-	public function new() {
-		mark();
+@:access(domkit.Properties)
+private class DirtyList<T:Model<T>> {
+	public var head : Properties<T>;
+	public var tail : Properties<T>;
+
+	public function new() {}
+
+	public function add(p : Properties<T>) {
+		if (p.isDirty()) return;
+
+		// Skip if immediate parent is already in list
+		var parent = p.parent;
+		if (parent != null && parent.isDirty())
+			return;
+
+		if (tail == null) {
+			head = tail = p;
+			return;
+		}
+
+		var cur = tail;
+		while (cur != null && cur.depth > p.depth) {
+			cur = cur.dirtyPrev;
+		}
+		if (cur == null) {
+			// Insert at head
+			p.dirtyNext = head;
+			head.dirtyPrev = p;
+			head = p;
+		} else {
+			// Insert after cur
+			p.dirtyPrev = cur;
+			p.dirtyNext = cur.dirtyNext;
+			if (cur.dirtyNext != null)
+				cur.dirtyNext.dirtyPrev = p;
+			else
+				tail = p;
+			cur.dirtyNext = p;
+		}
 	}
-	public inline function mark() {
-		dirty = true;
+
+	public function remove(p : Properties<T>) {
+		if (p.dirtyPrev != null) p.dirtyPrev.dirtyNext = p.dirtyNext;
+		if (p.dirtyNext != null) p.dirtyNext.dirtyPrev = p.dirtyPrev;
+		if (p == head) head = p.dirtyNext;
+		if (p == tail) tail = p.dirtyPrev;
+		p.dirtyPrev = null;
+		p.dirtyNext = null;
+	}
+
+	public function count() {
+		var count = 0;
+		var cur = head;
+		while (cur != null) {
+			count++;
+			cur = cur.dirtyNext;
+		}
+		return count;
 	}
 }
 
@@ -38,7 +89,10 @@ class Properties<T:Model<T>> {
 	var needStyleRefresh : Bool = true;
 	var firstInit : Bool = true;
 	var transitionCount : Int = 0;
-	var dirty : DirtyRef;
+	var dirty : DirtyList<T>;
+	var dirtyPrev : Properties<T>;
+	var dirtyNext : Properties<T>;
+	var depth : Int = 0;
 
 	static var KEEP_VALUES = false;
 
@@ -47,12 +101,16 @@ class Properties<T:Model<T>> {
 		this.component = component;
 		this.contentRoot = obj;
 		onParentChanged();
-		dirty.mark();
+		dirty.add(this);
+	}
+
+	inline function isDirty() {
+		return dirtyPrev != null || dirtyNext != null || dirty.head == this;
 	}
 
 	inline function needRefresh() {
 		needStyleRefresh = true;
-		dirty.mark();
+		dirty.add(this);
 		checkLoop();
 	}
 
@@ -74,11 +132,13 @@ class Properties<T:Model<T>> {
 	public function onParentChanged( ?prev : Properties<T> ) {
 		var p = parent;
 		if( p == null ) {
-			dirty = new DirtyRef();
+			dirty = new DirtyList<T>();
+			depth = 0;
 			if( prev != null )
 				prev.needRefresh(); // can change :first-child etc.
 		} else {
 			dirty = p.dirty;
+			depth = p.depth + 1;
 			needRefresh();
 		}
 		for( c in @:privateAccess obj.getChildren() )
@@ -106,22 +166,23 @@ class Properties<T:Model<T>> {
 	static var APPLY_LOOPS = 0;
 
 	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
-		if( partialRefresh && !dirty.dirty ) return;
+		if( partialRefresh && !isDirty() ) return;
 		var prev = APPLY_LOOPS;
 		var wasDirty = false;
 		APPLY_LOOPS = 0;
 		do {
-			if( dirty.dirty ) {
+			if( isDirty() ) {
 				wasDirty = true;
-				dirty.dirty = false;
+				dirty.remove(this);
 			}
 			style.applyStyle(this, !partialRefresh);
 			APPLY_LOOPS++;
-		} while( dirty.dirty );
+		} while( isDirty() );
 		APPLY_LOOPS = prev;
-		// if we did apply the style to a children element manually, we should not mark things
+		// if we did apply the style to a child element manually, we should not mark things
 		// as done as some parents styles might have not yet been updated
-		if( parent != null && wasDirty ) dirty.mark();
+		if( parent != null && wasDirty )
+			dirty.add(this);
 	}
 
 	public function removeClass( c : String ) {
