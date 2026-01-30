@@ -12,10 +12,19 @@ private class DirtyList<T:Model<T>> {
 	public var head : Properties<T>;
 	public var tail : Properties<T>;
 
+	var debugCount = 0;
+
 	public function new() {}
+
+	public function empty() {
+		return head == null;
+	}
 
 	public function add(p : Properties<T>) {
 		if (p.isDirty()) return;
+
+		if(has(p))
+			throw "?";
 
 		// Skip if immediate parent is already in list
 		var parent = p.parent;
@@ -26,6 +35,7 @@ private class DirtyList<T:Model<T>> {
 			p.dirtyPrev = null;
 			p.dirtyNext = null;
 			head = tail = p;
+			debugCount++;
 			return;
 		}
 
@@ -49,21 +59,68 @@ private class DirtyList<T:Model<T>> {
 				tail = p;
 			cur.dirtyNext = p;
 		}
+
+		if(!has(p))
+			throw "?";
+		debugCount++;
+
+		checkList();
 	}
 
 	public function remove(p : Properties<T>) {
+		if(!p.isDirty())
+			return;
 		if (p.dirtyPrev != null) p.dirtyPrev.dirtyNext = p.dirtyNext;
 		if (p.dirtyNext != null) p.dirtyNext.dirtyPrev = p.dirtyPrev;
 		if (p == head) head = p.dirtyNext;
 		if (p == tail) tail = p.dirtyPrev;
 		p.dirtyPrev = null;
 		p.dirtyNext = null;
+
+		debugCount--;
+
+		checkList();
+	}
+
+	function checkList() {
+		if(head == null) return;
+		
+		var p = head;
+		while (p.dirtyNext != null) {
+			p = p.dirtyNext;
+		}
+		if(p != tail)
+			throw "?";
+
+		var p = tail;
+		while (p.dirtyPrev != null) {
+			p = p.dirtyPrev;
+		}
+		if(p != head)
+			throw "?";
+
+		var cnt = count();
+		if(debugCount != cnt) {
+			trace('debugCount: ${debugCount}, cnt: ${cnt}');
+			throw "?";
+		}
+	}
+
+	public function has(p:Properties<T>) {
+		var cur = head;
+		while (cur != null) {
+			if(cur == p) return true;
+			cur = cur.dirtyNext;
+		}
+		return false;
 	}
 
 	public function count() {
 		var count = 0;
 		var cur = head;
 		while (cur != null) {
+			if(!cur.isDirty())
+				throw "?";
 			count++;
 			cur = cur.dirtyNext;
 		}
@@ -111,6 +168,13 @@ class Properties<T:Model<T>> {
 		return dirtyPrev != null || dirtyNext != null || dirty.head == this;
 	}
 
+	function isInDirty() {
+		if(isDirty()) return true;
+		if(parent != null)
+			return parent.isInDirty();
+		return false;
+	}
+
 	inline function needRefresh() {
 		needStyleRefresh = true;
 		dirty.add(this);
@@ -134,6 +198,8 @@ class Properties<T:Model<T>> {
 
 	public function onParentChanged( ?prev : Properties<T> ) {
 		var p = parent;
+		if( dirty != null )
+			dirty.remove(this);
 		if( p == null ) {
 			dirty = new DirtyList<T>();
 			depth = 0;
@@ -169,18 +235,13 @@ class Properties<T:Model<T>> {
 	static var APPLY_LOOPS = 0;
 
 	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
-		if( partialRefresh && !isDirty() ) return;
+		if( partialRefresh && !isInDirty() ) return;
 		var prev = APPLY_LOOPS;
-		var wasDirty = false;
 		APPLY_LOOPS = 0;
 		do {
-			if( isDirty() ) {
-				wasDirty = true;
-				dirty.remove(this);
-			}
 			style.applyStyle(this, !partialRefresh);
 			APPLY_LOOPS++;
-		} while( isDirty() );
+		} while( !dirty.empty() );
 		APPLY_LOOPS = prev;
 		// if we did apply the style to a child element manually, we should not mark things
 		// as done as some parents styles might have not yet been updated

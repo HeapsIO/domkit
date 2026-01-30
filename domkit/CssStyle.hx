@@ -579,6 +579,8 @@ class CssStyle {
 			}
 			// parent style has changed, we need to sync children
 			force = true;
+
+			e.dirty.remove(e);
 		}
 		var obj : Model<Dynamic> = e.obj;
 		for( c in @:privateAccess obj.getChildren() ) {
@@ -593,11 +595,14 @@ class CssStyle {
 	}
 
 	public function syncDirty( root : Properties<Dynamic> ) {
-		var dirty = root.dirty;
-		var cur = dirty.head;
+	 	var dirty = root.dirty;
 		while (dirty.head != null) {
-			var cur = dirty.head;
-			cur.applyStyle(this, true);
+			if(!dirty.has(dirty.head))
+				throw "?";
+			if(dirty.head.needStyleRefresh)
+				applyStyle(dirty.head, false);
+			else
+				dirty.remove(dirty.head);
 		}
 	}
 
