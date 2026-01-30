@@ -23,6 +23,8 @@ private class DirtyList<T:Model<T>> {
 			return;
 
 		if (tail == null) {
+			p.dirtyPrev = null;
+			p.dirtyNext = null;
 			head = tail = p;
 			return;
 		}
@@ -33,6 +35,7 @@ private class DirtyList<T:Model<T>> {
 		}
 		if (cur == null) {
 			// Insert at head
+			p.dirtyPrev = null;
 			p.dirtyNext = head;
 			head.dirtyPrev = p;
 			head = p;
@@ -181,8 +184,8 @@ class Properties<T:Model<T>> {
 		APPLY_LOOPS = prev;
 		// if we did apply the style to a child element manually, we should not mark things
 		// as done as some parents styles might have not yet been updated
-		if( parent != null && wasDirty )
-			dirty.add(this);
+		// if( parent != null && wasDirty )
+		// 	dirty.add(this);
 	}
 
 	public function removeClass( c : String ) {
