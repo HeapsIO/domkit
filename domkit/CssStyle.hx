@@ -597,12 +597,11 @@ class CssStyle {
 	public function syncDirty( root : Properties<Dynamic> ) {
 	 	var dirty = root.dirty;
 		while (dirty.head != null) {
-			if(!dirty.has(dirty.head))
-				throw "?";
-			if(dirty.head.needStyleRefresh)
-				applyStyle(dirty.head, false);
+			var p = dirty.head;
+			if(p.needStyleRefresh)
+				applyStyle(p, false);
 			else
-				dirty.remove(dirty.head);
+				dirty.remove(p);
 		}
 	}
 

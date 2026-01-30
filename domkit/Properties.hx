@@ -168,13 +168,6 @@ class Properties<T:Model<T>> {
 		return dirtyPrev != null || dirtyNext != null || dirty.head == this;
 	}
 
-	function isInDirty() {
-		if(isDirty()) return true;
-		if(parent != null)
-			return parent.isInDirty();
-		return false;
-	}
-
 	inline function needRefresh() {
 		needStyleRefresh = true;
 		dirty.add(this);
@@ -234,19 +227,14 @@ class Properties<T:Model<T>> {
 
 	static var APPLY_LOOPS = 0;
 
-	public function applyStyle( style : CssStyle, partialRefresh = false ) @:privateAccess {
-		if( partialRefresh && !isInDirty() ) return;
+	public function applyStyle( style : CssStyle ) @:privateAccess {
 		var prev = APPLY_LOOPS;
 		APPLY_LOOPS = 0;
 		do {
-			style.applyStyle(this, !partialRefresh);
+			style.applyStyle(this, true);
 			APPLY_LOOPS++;
 		} while( !dirty.empty() );
 		APPLY_LOOPS = prev;
-		// if we did apply the style to a child element manually, we should not mark things
-		// as done as some parents styles might have not yet been updated
-		// if( parent != null && wasDirty )
-		// 	dirty.add(this);
 	}
 
 	public function removeClass( c : String ) {
