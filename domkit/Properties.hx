@@ -23,9 +23,6 @@ private class DirtyList<T:Model<T>> {
 	public function add(p : Properties<T>) {
 		if (p.isDirty()) return;
 
-		if(has(p))
-			throw "?";
-
 		// Skip if immediate parent is already in list
 		var parent = p.parent;
 		if (parent != null && parent.isDirty())
@@ -35,14 +32,14 @@ private class DirtyList<T:Model<T>> {
 			p.dirtyPrev = null;
 			p.dirtyNext = null;
 			head = tail = p;
-			debugCount++;
 			return;
 		}
 
+		// Insert-sort
 		var cur = tail;
-		while (cur != null && cur.depth > p.depth) {
+		while (cur != null && cur.depth > p.depth)
 			cur = cur.dirtyPrev;
-		}
+
 		if (cur == null) {
 			// Insert at head
 			p.dirtyPrev = null;
@@ -59,12 +56,6 @@ private class DirtyList<T:Model<T>> {
 				tail = p;
 			cur.dirtyNext = p;
 		}
-
-		if(!has(p))
-			throw "?";
-		debugCount++;
-
-		checkList();
 	}
 
 	public function remove(p : Properties<T>) {
@@ -76,55 +67,6 @@ private class DirtyList<T:Model<T>> {
 		if (p == tail) tail = p.dirtyPrev;
 		p.dirtyPrev = null;
 		p.dirtyNext = null;
-
-		debugCount--;
-
-		checkList();
-	}
-
-	function checkList() {
-		if(head == null) return;
-		
-		var p = head;
-		while (p.dirtyNext != null) {
-			p = p.dirtyNext;
-		}
-		if(p != tail)
-			throw "?";
-
-		var p = tail;
-		while (p.dirtyPrev != null) {
-			p = p.dirtyPrev;
-		}
-		if(p != head)
-			throw "?";
-
-		var cnt = count();
-		if(debugCount != cnt) {
-			trace('debugCount: ${debugCount}, cnt: ${cnt}');
-			throw "?";
-		}
-	}
-
-	public function has(p:Properties<T>) {
-		var cur = head;
-		while (cur != null) {
-			if(cur == p) return true;
-			cur = cur.dirtyNext;
-		}
-		return false;
-	}
-
-	public function count() {
-		var count = 0;
-		var cur = head;
-		while (cur != null) {
-			if(!cur.isDirty())
-				throw "?";
-			count++;
-			cur = cur.dirtyNext;
-		}
-		return count;
 	}
 }
 
