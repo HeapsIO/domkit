@@ -365,7 +365,7 @@ class CssStyle {
 
 	function syncDirty( e : Properties<Dynamic> ) {
 		var dirty = e.dirty;
-		while (dirty.head != null) {
+		while (!dirty.empty()) {
 			var p = dirty.head;
 			if(p.needStyleRefresh)
 				applyStyle(p, false);
@@ -411,6 +411,7 @@ class CssStyle {
 		}
 
 		if( e.needStyleRefresh || force ) {
+			e.dirty.remove(e);  // Remove first so that cascading dirty still get added
 			var firstInit = e.firstInit;
 			e.firstInit = false;
 			e.needStyleRefresh = false;
@@ -588,8 +589,6 @@ class CssStyle {
 			}
 			// parent style has changed, we need to sync children
 			force = true;
-
-			e.dirty.remove(e);
 		}
 		var obj : Model<Dynamic> = e.obj;
 		for( c in @:privateAccess obj.getChildren() ) {
