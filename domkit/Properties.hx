@@ -11,8 +11,7 @@ enum SetAttributeResult {
 private class DirtyList<T:Model<T>> {
 	public var head : Properties<T>;
 	public var tail : Properties<T>;
-
-	var debugCount = 0;
+	public var addCount = 0;
 
 	public function new() {}
 
@@ -22,6 +21,7 @@ private class DirtyList<T:Model<T>> {
 
 	public function add(p : Properties<T>) {
 		if (p.isDirty()) return;
+		addCount++;
 
 		// Skip if immediate parent is already in list
 		var parent = p.parent;
@@ -103,7 +103,7 @@ class Properties<T:Model<T>> {
 		this.component = component;
 		this.contentRoot = obj;
 		onParentChanged();
-		dirty.add(this);
+		needRefresh();
 	}
 
 	inline function isDirty() {
@@ -171,12 +171,17 @@ class Properties<T:Model<T>> {
 
 	public function applyStyle( style : CssStyle ) @:privateAccess {
 		var prev = APPLY_LOOPS;
+		var wasDirty = false;
 		APPLY_LOOPS = 0;
+		var cnt = 0;
 		do {
-			style.applyStyle(this, true);
+			// Keep applying until no new dirty elements are added
+			cnt = dirty.addCount;
+			style.applyStyle(this, false);
 			APPLY_LOOPS++;
-		} while( !dirty.empty() );
+		} while( dirty.addCount > cnt );
 		APPLY_LOOPS = prev;
+		dirty.addCount = 0;
 	}
 
 	public function removeClass( c : String ) {
