@@ -363,6 +363,17 @@ class CssStyle {
 		return rules;
 	}
 
+	function syncDirty( e : Properties<Dynamic> ) {
+		var dirty = e.dirty;
+		while (!dirty.empty()) {
+			var p = dirty.head;
+			if(p.needStyleRefresh)
+				applyStyle(p, false);
+			else
+				dirty.remove(p);
+		}
+	}
+
 	function applyStyle( e : Properties<Dynamic>, force : Bool ) {
 		data.init();
 		if( !useSmartCache ) {
@@ -393,7 +404,6 @@ class CssStyle {
 	}
 
 	function applyStyleRec( e : Properties<Dynamic>, force : Bool, rules : Array<Rule> ) {
-
 		var prev = -1;
 		if( useSmartCache ) {
 			prev = setCompBit(e.component.id);
@@ -401,6 +411,7 @@ class CssStyle {
 		}
 
 		if( e.needStyleRefresh || force ) {
+			e.dirty.remove(e);  // Remove first so that cascading dirty still get added
 			var firstInit = e.firstInit;
 			e.firstInit = false;
 			e.needStyleRefresh = false;
