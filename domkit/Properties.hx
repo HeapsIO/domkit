@@ -177,7 +177,7 @@ class Properties<T:Model<T>> {
 		do {
 			// Keep applying until no new dirty elements are added
 			cnt = dirty.addCount;
-			style.applyStyle(this, false);
+			style.applyStyle(this, true);
 			APPLY_LOOPS++;
 		} while( dirty.addCount > cnt );
 		APPLY_LOOPS = prev;
