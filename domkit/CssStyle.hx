@@ -128,8 +128,9 @@ class CssData {
 	}
 
 	function sortByPriority(r1:Rule, r2:Rule) {
-		var dp = r2.priority - r1.priority;
-		return dp == 0 ? r2.id - r1.id : dp;
+		if (r2.priority != r1.priority)
+			return r2.priority > r1.priority ? 1 : -1;
+		return r2.id > r1.id ? 1 : -1;
 	}
 
 	public static function registerComponent(c:Component<Dynamic,Dynamic>) {
