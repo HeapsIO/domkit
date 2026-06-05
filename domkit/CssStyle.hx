@@ -438,6 +438,8 @@ class CssStyle {
 
 			for( r in rules ) {
 				if( !ruleMatch(r.cl,e) ) continue;
+				if(r.cl.pseudoClasses.has(NeedChildren) && e.parent != null)
+					e.parent.hasNeedChildren = true;
 				var i = r.style.length - 1;
 				while( i >= 0 ) {
 					var p = r.style[i--];
@@ -591,6 +593,8 @@ class CssStyle {
 			// parent style has changed, we need to sync children
 			force = true;
 		}
+		if (force)
+			e.hasNeedChildren = false;
 		var obj : Model<Dynamic> = e.obj;
 		for( c in @:privateAccess obj.getChildren() ) {
 			var c : Model<Dynamic> = c;
