@@ -29,6 +29,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 	var parser : CssValue.ValueParser;
 	var classType : ClassType;
 	var baseClass : ClassType;
+	var constructorPos : Position;
 	var constructorPath : Array<String>;
 	var constructorArgs : Array<{ type : ComplexType, name : String, opt : Bool }>;
 	var parserDependencies : Map<String, Field> = new Map();
@@ -40,6 +41,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		}
 		typePath = makeTypePath(classType).join(".");
 
+		constructorPos = classType.pos;
 		var c = classType;
 		var name = getCompName(c);
 		if( name == null ) throw "assert";
@@ -130,6 +132,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		}
 
 		if( f == null ) return;
+		constructorPos = f.pos;
 
 		switch( f.kind ) {
 		case FFun(f):
@@ -611,7 +614,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 		var newExpr;
 		var cargs = getConstructorArgs();
 		if( cargs != null ) {
-			newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, classType.pos);
+			newExpr = haxe.macro.MacroStringTools.toFieldExpr(constructorPath, constructorPos);
 			if( cargs.length == 0 )
 				newExpr = macro function(_,parent) return ($newExpr)(parent);
 			else {
@@ -621,7 +624,7 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 				eargs.push(macro parent);
 				newExpr = macro function(args,parent) return ($newExpr)($a{eargs});
 			}
-			setPosRec(newExpr, classType.pos);
+			setPosRec(newExpr, constructorPos);
 		} else
 			newExpr = macro function(args,parent) throw $v{cname+" cannot be constructed"};
 
