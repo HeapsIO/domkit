@@ -258,7 +258,7 @@ class DMLChecker {
 		this.parser.allowMetadata = true;
 		this.parser.allowTypes = true;
 		checker.begin(parseMarkup);
-		checker.imports = [];
+		checker.clearImports();
 		var pos = #if hscriptPos { e : null, pmin : dml.pmin, pmax : dml.pmax, line : 0, origin : filePath } #else null #end;
 		for( l in Reflect.fields(locals) ) {
 			var lval : Dynamic = Reflect.field(locals,l);
@@ -269,10 +269,11 @@ class DMLChecker {
 			var c = checker.components.get(name);
 			if( c != null ) {
 				@:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
+				addImportHx(filePath);
 				var pack = c.classDef.name.split(".");
 				pack.pop();
 				if( pack.length > 0 )
-					checker.imports.push(pack.join("."));
+					checker.addImport(IPackage(pack.join(".")));
 			}
 		default:
 		}
@@ -280,6 +281,44 @@ class DMLChecker {
 		this.parser = null;
 		checker.done();
 		return dml;
+	}
+
+	function addImportHx( filePath : String ) {
+		#if (sys || hxnodejs)
+		if( filePath == null ) return;
+		var dir = filePath.split("\\").join("/").split("/");
+		dir.pop(); // file name
+		var files = [];
+		while( dir.length > 0 ) {
+			var f = dir.join("/")+"/import.hx";
+			if( sys.FileSystem.exists(f) ) files.unshift(f);
+			dir.pop();
+		}
+		for( f in files ) {
+			var decls = try new hscript.Parser().parseModule(sys.io.File.getContent(f), f) catch( e : hscript.Expr.Error ) continue;
+			for( d in decls )
+				switch( d ) {
+				case DImport(path, star, name):
+					var i = makeImport(path, star == true, name);
+					if( i != null ) checker.addImport(i);
+				default:
+				}
+		}
+		#end
+	}
+
+	function makeImport( path : Array<String>, star : Bool, ?alias : String ) : Null<hscript.Checker.ImportDef> {
+		var full = path.join(".");
+		var t = checker.resolvePath(full);
+		if( star )
+			return t == null ? IPackage(full) : IStaticAll(t);
+		var name = alias != null ? alias : path[path.length-1];
+		if( t != null )
+			return IType(name, t);
+		// import pack.Type.staticField
+		if( path.length < 2 ) return null;
+		t = checker.resolvePath(path.slice(0,-1).join("."));
+		return t == null ? null : IStatic(name, t, path[path.length-1]);
 	}
 
 	function parseMarkup( data : String, expr : Expr ) {
