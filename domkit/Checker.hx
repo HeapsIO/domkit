@@ -249,6 +249,13 @@ class DMLChecker {
 		this.checker = checker;
 	}
 
+	public dynamic function loadFile( path : String ) : Null<String> {
+		#if (sys || hxnodejs)
+		return try sys.io.File.getContent(path) catch( e : Dynamic ) null;
+		#else
+		return null;
+		#end
+	}
 	public function parse( data : String, filePath : String, filePos : Int, locals : {} ) : Markup {
 		var parser = new MarkupParser();
 		var dml = parser.parse(data,filePath,filePos).children[0];
@@ -269,11 +276,7 @@ class DMLChecker {
 			var c = checker.components.get(name);
 			if( c != null ) {
 				@:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
-				addImportHx(filePath);
-				var pack = c.classDef.name.split(".");
-				pack.pop();
-				if( pack.length > 0 )
-					checker.addImport(IPackage(pack.join(".")));
+				addModuleImports(filePath, c.classDef.name);
 			}
 		default:
 		}
@@ -283,42 +286,36 @@ class DMLChecker {
 		return dml;
 	}
 
-	function addImportHx( filePath : String ) {
-		#if (sys || hxnodejs)
-		if( filePath == null ) return;
-		var dir = filePath.split("\\").join("/").split("/");
-		dir.pop(); // file name
-		var files = [];
-		while( dir.length > 0 ) {
-			var f = dir.join("/")+"/import.hx";
-			if( sys.FileSystem.exists(f) ) files.unshift(f);
-			dir.pop();
+	function addModuleImports( filePath : String, ?typePath : String ) {
+		if( typePath != null ) {
+			var pack = typePath.split(".");
+			pack.pop();
+			if( pack.length > 0 ) checker.addImportDef(IPackage(pack.join(".")));
 		}
-		for( f in files ) {
-			var decls = try new hscript.Parser().parseModule(sys.io.File.getContent(f), f) catch( e : hscript.Expr.Error ) continue;
-			for( d in decls )
-				switch( d ) {
-				case DImport(path, star, name):
-					var i = makeImport(path, star == true, name);
-					if( i != null ) checker.addImport(i);
-				default:
-				}
+		if( filePath != null ) {
+			var dir = filePath.split("\\").join("/").split("/");
+			dir.pop(); // file name
+			var files = [];
+			while( dir.length > 0 ) {
+				files.unshift(dir.join("/")+"/import.hx");
+				dir.pop();
+			}
+			files.push(filePath); // the module own imports have the highest priority
+			for( f in files ) {
+				var content = loadFile(f);
+				if( content == null ) continue;
+				// the compilation flags are unknown here, an undefined `#if` ident is false
+				var decls = try new hscript.Parser().parseImports(content, f) catch( e : hscript.Expr.Error ) continue;
+				for( d in decls )
+					switch( d ) {
+					case DImport(path, star, name): checker.addImport(path, star == true, name);
+					default: // DPackage, DUsing : static extensions are not supported
+					}
+			}
 		}
-		#end
-	}
-
-	function makeImport( path : Array<String>, star : Bool, ?alias : String ) : Null<hscript.Checker.ImportDef> {
-		var full = path.join(".");
-		var t = checker.resolvePath(full);
-		if( star )
-			return t == null ? IPackage(full) : IStaticAll(t);
-		var name = alias != null ? alias : path[path.length-1];
-		if( t != null )
-			return IType(name, t);
-		// import pack.Type.staticField
-		if( path.length < 2 ) return null;
-		t = checker.resolvePath(path.slice(0,-1).join("."));
-		return t == null ? null : IStatic(name, t, path[path.length-1]);
+		// the types declared by the module itself win over the imports
+		if( typePath != null )
+			checker.addImportDef(IModule(checker.moduleOf(typePath)));
 	}
 
 	function parseMarkup( data : String, expr : Expr ) {
