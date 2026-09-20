@@ -309,7 +309,8 @@ class DMLChecker {
 				for( d in decls )
 					switch( d ) {
 					case DImport(path, star, name): checker.addImport(path, star == true, name);
-					default: // DPackage, DUsing : static extensions are not supported
+					case DUsing(path): checker.addUsing(path);
+					default:
 					}
 			}
 		}
