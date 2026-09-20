@@ -62,7 +62,7 @@ class Macros {
 	@:persistent static var ALLOW_INTERP = false;
 
 	static function getLocalVars() {
-		return [for( v in Context.getLocalTVars() ) if( v.name.charCodeAt(0) != '`'.code ) v];
+		return [for( v in Context.getLocalTVars() ) if( v.name.charCodeAt(0) != '`'.code && (v.extra == null || v.extra.expr == null) ) v];
 	}
 
 	#if hscript
