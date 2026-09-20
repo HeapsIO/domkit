@@ -74,6 +74,12 @@ class Checker extends hscript.Checker {
 		return components.get(domkit.Component.resolveRemaps(name));
 	}
 
+	public function makeParams( c : TypedComponent ) : Null<Array<Type>> {
+		if( c == null || c.classDef == null || c.classDef.params.length == 0 )
+			return null;
+		return [for( p in c.classDef.params ) makeMono()];
+	}
+
 	public function resolveProperty( comp : TypedComponent, name : String ) {
 		while( comp != null ) {
 			var p = comp.properties.get(name);
@@ -296,7 +302,7 @@ class DMLChecker {
 		case Node(name):
 			var c = checker.getComponent(name);
 			if( c != null ) {
-				@:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
+				@:privateAccess checker.locals.set("this", TInst(c.classDef,c.classDef.params));
 				addModuleImports(filePath, c.classDef.name);
 			}
 		default:
@@ -377,9 +383,11 @@ class DMLChecker {
 		switch( m.kind ) {
 		case Node(name):
 			var c = checker.getComponent(name);
+			var cparams = checker.makeParams(c);
+			inline function inst( t : Type ) return cparams == null ? t : checker.apply(t, c.classDef.params, cparams);
 			var prev = checker.getGlobals().get("__this__");
 			if( c.classDef != null )
-				checker.setGlobal("__this__", TInst(c.classDef,c.classDef.params));
+				checker.setGlobal("__this__", TInst(c.classDef,cparams == null ? c.classDef.params : cparams));
 			if( c == null )
 				error("Unknown component "+name,m);
 			if( isRoot ) {
@@ -392,9 +400,9 @@ class DMLChecker {
 						error("Too many arguments (require "+[for( a in c.arguments ) a.name].join(",")+")",a);
 					var t = switch( a.value ) {
 					case RawValue(_): checker.t_string;
-					case Code(code): typeCode(code, a, arg.t);
+					case Code(code): typeCode(code, a, inst(arg.t));
 					};
-					unify(t, arg.t, c, arg.name, a);
+					unify(t, inst(arg.t), c, arg.name, a);
 				}
 				for( i in m.arguments.length...c.arguments.length )
 					if( !c.arguments[i].opt )
@@ -457,7 +465,7 @@ class DMLChecker {
 				var pname = checker.haxeToCss(a.name);
 				var p = checker.resolveProperty(c, pname);
 				if( p == null ) {
-					var t = @:privateAccess checker.getField(TInst(c.classDef,c.classDef.params),a.name,{pmin:a.pmin,pmax:a.pmax,origin:filePath,line:1,e:null},true);
+					var t = @:privateAccess checker.getField(TInst(c.classDef,cparams == null ? c.classDef.params : cparams),a.name,{pmin:a.pmin,pmax:a.pmax,origin:filePath,line:1,e:null},true);
 					if( t == null )
 						error(c.name+" does not have property "+a.name, a);
 					var pt = switch( a.value ) {
@@ -474,9 +482,9 @@ class DMLChecker {
 				case RawValue(str):
 					typeProperty(pname, a.vmin, a.pmax, new domkit.CssParser().parseValue(str), c);
 				case Code(code):
-					var t = typeCode(code, vpos, p.type);
+					var t = typeCode(code, vpos, inst(p.type));
 					setTypedExpr();
-					unify(t, p.type, c, pname, vpos);
+					unify(t, inst(p.type), c, pname, vpos);
 				}
 			}
 			if( m.condition != null ) {
