@@ -70,6 +70,10 @@ class Checker extends hscript.Checker {
 		return super.checkMeta(m, args, next, expr, withType);
 	}
 
+	public function getComponent( name : String ) {
+		return components.get(domkit.Component.resolveRemaps(name));
+	}
+
 	public function resolveProperty( comp : TypedComponent, name : String ) {
 		while( comp != null ) {
 			var p = comp.properties.get(name);
@@ -123,6 +127,7 @@ class Checker extends hscript.Checker {
 		properties = [];
 		var cdefs = [];
 		var cmap = new Map();
+		var ownArgs = new Map<String,Bool>();
 		for( t in types.types ) {
 			var c = switch( t ) {
 			case CTClass(c) if( c.meta != null ): c;
@@ -160,12 +165,15 @@ class Checker extends hscript.Checker {
 				}
 			comp.classDef = cl;
 			cmap.set(cl.name, comp);
-			if( c.constructor != null ) {
-				switch( c.constructor.t ) {
-				case TFun(args,_): comp.arguments = args;
+			var cst = c.statics.get("create");
+			if( cst == null ) cst = c.constructor;
+			if( cst != null )
+				switch( cst.t ) {
+				case TFun(args,_):
+					comp.arguments = args.slice(0,-1);
+					ownArgs.set(name, true);
 				default:
 				}
-			}
 			for( f in c.fields ) {
 				var prop = null;
 				if( f.meta != null ) {
@@ -233,6 +241,19 @@ class Checker extends hscript.Checker {
 			if( parent != null )
 				comp.parent = { comp : parent, params : params };
 		}
+		// a component that declares no constructor uses the arguments of its parent
+		for( def in cdefs ) {
+			if( ownArgs.exists(def.name) ) continue;
+			var comp = components.get(def.name);
+			var p = comp.parent;
+			while( p != null ) {
+				if( ownArgs.exists(p.comp.name) ) {
+					comp.arguments = p.comp.arguments;
+					break;
+				}
+				p = p.comp.parent;
+			}
+		}
 	}
 
 }
@@ -273,7 +294,7 @@ class DMLChecker {
 		}
 		switch( dml.kind ) {
 		case Node(name):
-			var c = checker.components.get(name);
+			var c = checker.getComponent(name);
 			if( c != null ) {
 				@:privateAccess checker.locals.set("this", TInst(c.classDef,[]));
 				addModuleImports(filePath, c.classDef.name);
@@ -355,7 +376,7 @@ class DMLChecker {
 	function checkRec( m : Markup, isRoot = false ) {
 		switch( m.kind ) {
 		case Node(name):
-			var c = checker.components.get(name);
+			var c = checker.getComponent(name);
 			var prev = checker.getGlobals().get("__this__");
 			if( c.classDef != null )
 				checker.setGlobal("__this__", TInst(c.classDef,c.classDef.params));
