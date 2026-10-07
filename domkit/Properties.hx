@@ -95,6 +95,7 @@ class Properties<T:Model<T>> {
 	var dirtyPrev : Properties<T>;
 	var dirtyNext : Properties<T>;
 	var depth : Int = 0;
+	var hasNeedChildren = false;
 
 	static var KEEP_VALUES = false;
 
@@ -138,7 +139,7 @@ class Properties<T:Model<T>> {
 		if( p == null ) {
 			dirty = new DirtyList<T>();
 			depth = 0;
-			if( prev != null )
+			if( prev != null && prev.hasNeedChildren)
 				prev.needRefresh(); // can change :first-child etc.
 		} else {
 			dirty = p.dirty;
