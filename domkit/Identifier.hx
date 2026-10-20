@@ -16,6 +16,6 @@ abstract Identifier(Int) {
 		return this != #if static 0 #else null #end;
 	}
 	static var _UID = 0;
-	static var _CACHE = new Map();
-	static var _RCACHE = [null];
+	static var _CACHE : Map<String,Int> = new Map();
+	static var _RCACHE : Array<Null<String>> = [null];
 }

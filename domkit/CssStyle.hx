@@ -115,7 +115,7 @@ typedef FastBytes = haxe.io.Bytes;
 class CssData {
 
 	public static var CID = 0;
-	public static var COMPONENTS = [];
+	public static var COMPONENTS : Array<Component<Dynamic,Dynamic>> = [];
 
 	public var rules : Array<Rule>;
 	public var bytesSize : Int = 0;
