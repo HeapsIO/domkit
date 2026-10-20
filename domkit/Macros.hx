@@ -707,7 +707,10 @@ class Macros {
 
 	public static function buildObject() {
 		var pre = preload;
-		if( pre.length > 0 ) {
+		// preloaded components are only built from another component: building them
+		// from one of themselves would need a class that is being built (a build cycle)
+		var localName = Context.getLocalClass().toString().split(".").pop();
+		if( pre.length > 0 && !Lambda.exists(pre, (p) -> p.split(".").pop() == localName) ) {
 			preload = [];
 			while( pre.length > 0 ) {
 				var p = pre.shift();
