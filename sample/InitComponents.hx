@@ -6,7 +6,10 @@ class InitComponents {
 		domkit.Macros.registerComponentsPath("Components.$Component");
 		domkit.Macros.registerComponentsPath("$Component");
 		domkit.Macros.processMacro = processMacro;
-		#if (haxe_ver >= 5)
+		#if haxe6
+		// the CSS is checked against every component, known once typing is done
+		haxe.macro.Context.onAfterTyping(_ -> checkCSS());
+		#elseif (haxe_ver >= 5)
 		haxe.macro.Context.onAfterInitMacros(checkCSS);
 		#else
 		checkCSS();
