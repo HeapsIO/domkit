@@ -643,8 +643,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var expr = macro addHandler($v{p.name},@:privateAccess ${h.parserExpr},($def : $ptype),@:privateAccess $set,$transExpr);
 			setPosRec(expr,h.position);
 			setExprs.set(p.name, set);
-			handlers.push(expr);
+			handlers.push({ name : p.name, expr : expr });
 		}
+		// property ids depend on the order components are built in : emit by name
+		handlers.sort((h1,h2) -> Reflect.compare(h1.name,h2.name));
+		var handlers = [for( h in handlers ) h.expr];
 
 		var parserClass = switch( parserType ) {
 		case TPath(t): t;
