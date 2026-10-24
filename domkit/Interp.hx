@@ -287,7 +287,7 @@ class Interp {
 		}
 	}
 
-	static var COMP_CACHE = new Map();
+	static var COMP_CACHE = new Map<String, Interp>();
 	public static function run( obj : Model<Dynamic>, compName : String, locals : {} ) {
 		function execute() {
 			var i = COMP_CACHE.get(compName);
@@ -357,7 +357,7 @@ class Interp {
 
 	public static var onError : (msg:String) -> Void;
 
-	public static function init( callb ) {
+	public static function init( callb : Class<Dynamic> -> Void ) {
 		var found = false;
 		for( comp in COMPONENTS ) {
 			if( comp.path != null ) {

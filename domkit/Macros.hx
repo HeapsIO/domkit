@@ -636,6 +636,7 @@ class Macros {
 				}
 			}
 			if( ccur.superClass == null ) break;
+			#if haxe6 Context.buildType(TInst(ccur.superClass.t, ccur.superClass.params)); #end // :domkitInitArgs is added by the build of the super class
 			ccur = ccur.superClass.t.get();
 		}
 
