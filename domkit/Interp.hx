@@ -357,7 +357,7 @@ class Interp {
 
 	public static var onError : (msg:String) -> Void;
 
-	public static function init( callb : Class<Dynamic> -> Void ) {
+	public static function init( callb ) {
 		var found = false;
 		for( comp in COMPONENTS ) {
 			if( comp.path != null ) {
