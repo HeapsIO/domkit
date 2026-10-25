@@ -453,7 +453,7 @@ class CssParser {
 		return { p : p, time : time, curve : curve };
 	}
 
-	function parseStyle( classes : Array<CssClass>, eof : Token ) : CssSheetElement {
+	function parseStyle( classes, eof ) : CssSheetElement {
 		var elt : CssSheetElement = { classes : classes, style : [] };
 		var oldVars = null;
 		while( true ) {
@@ -878,7 +878,7 @@ class CssParser {
 		}
 	}
 
-	function readValue(?opt:Bool) : CssValue {
+	function readValue(?opt) : CssValue {
 		var t = readToken();
 		var start = tokenStart;
 		var v = switch( t ) {
@@ -1040,7 +1040,7 @@ class CssParser {
 		}
 	}
 
-	function readOp( op : CssOp, v : CssValue ) : CssValue {
+	function readOp( op, v ) {
 		calc++;
 		var op = makeOp(op, v, readValue());
 		calc--;
