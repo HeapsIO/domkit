@@ -51,7 +51,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var csup = ccur.superClass.t.get();
 			var cname = getCompName(csup, true);
 			if( cname != null ) {
-				metaParent = @:privateAccess try Macros.loadComponent(cname,0,0,true) catch( e : domkit.Error ) null catch( e : Error ) null;
+				// the component of the super class, given by its build
+				metaParent = @:privateAccess Macros.getClassComponent(TInst(ccur.superClass.t, []));
+				// a declared base class (ComponentDecl) has the component of its declaration
+				if( metaParent == null )
+					metaParent = @:privateAccess try Macros.loadComponent(cname,0,0,true) catch( e : domkit.Error ) null catch( e : Error ) null;
 				if( metaParent == null ) error("Missing super component registration "+cname, c.pos);
 				break;
 			}
@@ -639,8 +643,11 @@ class MetaComponent extends Component<Dynamic,Dynamic> {
 			var expr = macro addHandler($v{p.name},@:privateAccess ${h.parserExpr},($def : $ptype),@:privateAccess $set,$transExpr);
 			setPosRec(expr,h.position);
 			setExprs.set(p.name, set);
-			handlers.push(expr);
+			handlers.push({ name : p.name, expr : expr });
 		}
+		// property ids depend on the order components are built in : emit by name
+		handlers.sort((h1,h2) -> Reflect.compare(h1.name,h2.name));
+		var handlers = [for( h in handlers ) h.expr];
 
 		var parserClass = switch( parserType ) {
 		case TPath(t): t;

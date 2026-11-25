@@ -53,7 +53,8 @@ class Macros {
 
 	#if macro
 
-	@:persistent static var COMPONENTS = new Map<String, domkit.MetaComponent>();
+	// the component of each component class, given by its build
+	#if !haxe6 @:persistent #end static var COMPONENTS = new ComponentCache();
 	@:persistent static var COMPONENTS_REMAP_REV = new Map<String, String>();
 	@:persistent static var componentsSearchPath : Array<String> = ["$","h2d.domkit.BaseComponents.$Comp"];
 	@:persistent static var componentsType : ComplexType;
@@ -110,7 +111,7 @@ class Macros {
 		try {
 			var parser = new CssParser();
 			var rules = parser.parseSheet(content, file);
-			var components : Array<Component<Dynamic,Dynamic>> = [for( c in COMPONENTS ) c];
+			var components : Array<Component<Dynamic,Dynamic>> = [for( c in COMPONENTS.all() ) c.value];
 			inline function height(c:Component<Dynamic,Dynamic>) {
 				var h = 0;
 				do {
@@ -128,20 +129,16 @@ class Macros {
 		}
 	}
 
+	// the component of class [t] (built if needed), null if it is not a component
+	static function getClassComponent( t : haxe.macro.Type ) : MetaComponent {
+		return COMPONENTS.tryGet(t);
+	}
+
 	static function loadComponent( name : String, pmin : Int, pmax : Int, alreadyResolved = false ) {
 
 		var oldName = COMPONENTS_REMAP_REV.get(name);
 		if( oldName != null && !alreadyResolved ) name = oldName;
 
-
-		var c = COMPONENTS.get(name);
-		if( c != null && !c.isRuntimeComponentAlive() ) {
-			COMPONENTS.remove(name);
-			c = null;
-		}
-
-		if( c != null && (alreadyResolved || c.isGlobal) )
-			return c;
 
 		var lastError = null;
 		var uname = MetaComponent.componentNameToClass(name);
@@ -155,8 +152,8 @@ class Macros {
 			default:
 				continue;
 			}
-			var c = COMPONENTS.get(name);
-			if( c == null ) {
+			var c = COMPONENTS.tryGet(t);
+			if( c == null || c.name != name ) {
 				lastError = t;
 				continue;
 			}
@@ -235,7 +232,8 @@ class Macros {
 	static function buildComponentsInit( m : MarkupParser.Markup, data : ComponentData, pos : Position, isRoot = false) : Expr {
 		switch (m.kind) {
 		case Node(name):
-			var comp = loadComponent(name, m.pmin, m.pmin+name.length, name == data.root.name);
+			// the root is the component being built
+			var comp = data.root != null && name == data.root.name ? data.root : loadComponent(name, m.pmin, m.pmin+name.length);
 			var args = comp.getConstructorArgs();
 			var eargs = [];
 			if( m.arguments == null ) m.arguments = [];
@@ -638,6 +636,7 @@ class Macros {
 				}
 			}
 			if( ccur.superClass == null ) break;
+			#if haxe6 Context.buildType(TInst(ccur.superClass.t, ccur.superClass.params)); #end // :domkitInitArgs is added by the build of the super class
 			ccur = ccur.superClass.t.get();
 		}
 
@@ -706,13 +705,19 @@ class Macros {
 	}
 
 	public static function buildObject() {
-		var pre = preload;
-		if( pre.length > 0 ) {
-			preload = [];
+		// copied: the list stays in the persistent configuration, a compilation that types again a
+		// base component (and its base class, which gets its :uiComp from it) must build it first again
+		var pre = preload.copy();
+		// preloaded components are only built from another component: building them
+		// from one of themselves would need a class that is being built (a build cycle)
+		var localName = Context.getLocalClass().toString().split(".").pop();
+		if( pre.length > 0 && !Lambda.exists(pre, (p) -> p.split(".").pop() == localName) ) {
 			while( pre.length > 0 ) {
 				var p = pre.shift();
 				switch( Context.getType(p) ) {
-				case TInst(c,_): c.get(); // force build
+				case TInst(c,_):
+					// force build
+					#if haxe6 Context.buildType(Context.getType(p)); #else c.get(); #end
 				default:
 				}
 			}
@@ -755,17 +760,16 @@ class Macros {
 			try {
 				var m = new MetaComponent(Context.getLocalType(), fields);
 				if( componentsType == null ) componentsType = m.baseType;
-				if (!COMPONENTS.exists(m.name) || !m.isRuntimeComponentAlive()) {
+				if( !m.isRuntimeComponentAlive() )
 					Context.defineType(m.buildRuntimeComponent(componentsType,fields));
-					var cl = MetaComponent.componentNameToClass(m.name);
-					for( path in componentsSearchPath ) {
-						if( path.split("$").join(cl) == m.typePath ) {
-							m.isGlobal = true;
-							break;
-						}
+				var cl = MetaComponent.componentNameToClass(m.name);
+				for( path in componentsSearchPath ) {
+					if( path.split("$").join(cl) == m.typePath ) {
+						m.isGlobal = true;
+						break;
 					}
-					COMPONENTS.set(m.name, m);
 				}
+				COMPONENTS.setCurrent(m);
 				var t = m.getRuntimeComponentType();
 				fields.push((macro class {
 					static var ref : $t = null;
