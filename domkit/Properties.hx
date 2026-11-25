@@ -120,7 +120,7 @@ class Properties<T:Model<T>> {
 		if( APPLY_LOOPS > 100 ) throw "Infinite loop in apply style";
 	}
 
-	static var EMPTY_CLASSES = [];
+	static var EMPTY_CLASSES : Array<Identifier> = [];
 	public function getClasses() : Iterable<Identifier> {
 		return classes == null ? EMPTY_CLASSES : classes;
 	}
